@@ -179,7 +179,7 @@ lazy val dockerSettings = Seq(
       from("java")
       maintainer("Alex Silva <alex-silva@pluralsight.com>")
       user("root")
-      env("JAVA_OPTS", "-Xmx2G")
+      env("JAVA_OPTS", "-Xmx2G -Xms256")
       runRaw("mkdir -p /etc/hydra")
       run("mkdir", "-p", "/var/log/hydra")
       expose(8088)
