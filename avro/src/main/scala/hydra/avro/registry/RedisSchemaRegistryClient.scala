@@ -2,7 +2,7 @@ package hydra.avro.registry
 
 import com.typesafe.config.{Config, ConfigFactory}
 import hydra.common.config.ConfigSupport.ConfigImplicits
-import hydra.common.config.KafkaConfigUtils.SchemaRegistrySecurityConfig
+import hydra.common.config.KafkaConfigUtils.{SchemaRegistrySecurityConfig, schemaRegistrySecurityConfig}
 import io.confluent.kafka.schemaregistry.client.{SchemaMetadata, SchemaRegistryClient}
 import io.confluent.kafka.schemaregistry.client.rest.RestService
 import io.confluent.kafka.schemaregistry.client.security.SslFactory
@@ -13,8 +13,14 @@ import scalacache.modes.try_._
 import scalacache.serialization.Codec
 import scalacache.serialization.Codec.DecodingResult
 import _root_.redis.clients.jedis._
+import io.confluent.kafka.schemaregistry.ParsedSchema
+import io.confluent.kafka.schemaregistry.avro.AvroSchema
+import io.confluent.kafka.schemaregistry.client.rest.entities.SchemaReference
+import io.confluent.kafka.schemaregistry.avro.AvroSchemaProvider
 
 import java.io.{ByteArrayInputStream, ByteArrayOutputStream, ObjectInputStream, ObjectOutputStream}
+import java.util
+import java.util.Optional
 import java.util.concurrent.TimeUnit
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.Duration
@@ -71,6 +77,7 @@ object RedisSchemaRegistryClient {
       new SerializableSchemaMetadata(sm.getId, sm.getVersion, sm.getSchema)
     }
   }
+
   private class SerializableSchemaMetadata(id: Int, version: Int, schema: String) extends Serializable {
     def getSchemaMetadata: SchemaMetadata = {
       new SchemaMetadata(id, version, schema)
@@ -168,6 +175,7 @@ object RedisSchemaRegistryClient {
   }
 }
 
+// scalastyle:off number.of.methods
 class RedisSchemaRegistryClient(restService: RestService,
                                 redisHost: String,
                                 redisPort: Int,
@@ -181,7 +189,7 @@ class RedisSchemaRegistryClient(restService: RestService,
   }
 
   def this(baseUrl: String, redisHost: String, redisPort: Int, ssl: Boolean) {
-    this(new RestService(baseUrl), redisHost, redisPort, Map.empty[String, String], Map.empty[String, Any],  CacheConfigs(1, 1, 1), ssl)
+    this(new RestService(baseUrl), redisHost, redisPort, Map.empty[String, String], Map.empty[String, Any], CacheConfigs(1, 1, 1), ssl)
   }
 
   def this(baseUrl: String, redisHost: String, redisPort: Int, cacheConfigs: CacheConfigs, ssl: Boolean) {
@@ -208,7 +216,8 @@ class RedisSchemaRegistryClient(restService: RestService,
     this(new RestService(baseUrl), redisHost, redisPort, httpHeaders, config, CacheConfigs(1, 1, 1), ssl)
   }
 
-  def this(baseUrl: String, redisHost: String, redisPort: Int, httpHeaders: Map[String, String], config: Map[String, Any], cacheConfigs: CacheConfigs, ssl: Boolean) {
+  def this(baseUrl: String, redisHost: String, redisPort: Int, httpHeaders: Map[String, String], config: Map[String, Any],
+           cacheConfigs: CacheConfigs, ssl: Boolean) {
     this(new RestService(baseUrl), redisHost, redisPort, httpHeaders, config, cacheConfigs, ssl)
   }
 
@@ -240,7 +249,8 @@ class RedisSchemaRegistryClient(restService: RestService,
     this(new RestService(baseUrls.asJava), redisHost, redisPort, httpHeaders, config, CacheConfigs(1, 1, 1), ssl)
   }
 
-  def this(baseUrls: List[String], redisHost: String, redisPort: Int, httpHeaders: Map[String, String], config: Map[String, Any], cacheConfigs: CacheConfigs, ssl: Boolean) {
+  def this(baseUrls: List[String], redisHost: String, redisPort: Int, httpHeaders: Map[String, String],
+           config: Map[String, Any], cacheConfigs: CacheConfigs, ssl: Boolean) {
     this(new RestService(baseUrls.asJava), redisHost, redisPort, httpHeaders, config, cacheConfigs, ssl)
   }
 
@@ -293,7 +303,7 @@ class RedisSchemaRegistryClient(restService: RestService,
     restService.setHttpHeaders(httpHeaders.asJava)
   }
 
-  if (configs!= null && configs.nonEmpty) {
+  if (configs != null && configs.nonEmpty) {
     restService.configure(configs.asJava)
 
     val srPrefix = "schema.registry."
@@ -316,14 +326,14 @@ class RedisSchemaRegistryClient(restService: RestService,
     register(s, schema, 0, -1)
   }
 
-  override def getById(i: Int): Schema = synchronized {
+  private def getSchemaByIdInternal(i: Int): Schema = synchronized {
     val restSchema = restService.getId(i)
     val parser = new Schema.Parser()
     parser.setValidateDefaults(false)
     parser.parse(restSchema.getSchemaString)
   }
 
-  override def getBySubjectAndId(s: String, i: Int): Schema = {
+  private def getSchemaBySubjectAndIdInternal(s: String, i: Int): Schema = {
     if (DO_NOT_CACHE_LIST.exists(s.startsWith)) {
       restGetSchemaById(s, i)
     } else {
@@ -379,10 +389,10 @@ class RedisSchemaRegistryClient(restService: RestService,
     restService.getAllSubjectsById(i)
   }
 
-   def getLatestSchemaMetadata(s: String): SchemaMetadata = synchronized {
+  def getLatestSchemaMetadata(s: String): SchemaMetadata = synchronized {
     val response = restService.getLatestVersion(s)
     val id = response.getId
-    val schema: String  = response.getSchema
+    val schema: String = response.getSchema
     val version = response.getVersion
     new SchemaMetadata(id, version, schema)
   }
@@ -394,7 +404,7 @@ class RedisSchemaRegistryClient(restService: RestService,
     new SchemaMetadata(id, i, schema)
   }*/
 
-  override def getSchemaMetadata(s: String, i: Int): SchemaMetadata = {
+  override def getSchemaMetadata(subject: String, id: Int): SchemaMetadata = {
     def get(s: String, i: Int): SchemaMetadata = {
       val response = restService.getVersion(s, i)
       val id = response.getId
@@ -402,43 +412,43 @@ class RedisSchemaRegistryClient(restService: RestService,
       new SchemaMetadata(id, i, schema)
     }
 
-    if(DO_NOT_CACHE_LIST.exists(s.startsWith)) {
-      get(s, i)
+    if (DO_NOT_CACHE_LIST.exists(subject.startsWith)) {
+      get(subject, id)
     } else {
-      val metadataKey = buildMetadataKey(s)
+      val metadataKey = buildMetadataKey(subject)
 
       metadataCache.get(metadataKey) match {
         case Failure(_) =>
-          val sm = get(s, i)
-          metadataCache.put(metadataKey)(Map(i -> sm), metadataCacheDurationTtl)
+          val sm = get(subject, id)
+          metadataCache.put(metadataKey)(Map(id -> sm), metadataCacheDurationTtl)
           sm
         case Success(map) => map match {
-          case Some(m) if m.keySet.contains(i) =>
-            m(i)
+          case Some(m) if m.keySet.contains(id) =>
+            m(id)
           case Some(m) =>
-            val sm = get(s, i)
-            val concatMap: Map[Int, SchemaMetadata] = m ++ Map(i -> sm)
+            val sm = get(subject, id)
+            val concatMap: Map[Int, SchemaMetadata] = m ++ Map(id -> sm)
             metadataCache.put(metadataKey)(concatMap, metadataCacheDurationTtl)
             sm
           case None =>
-            val sm = get(s, i)
-            metadataCache.put(metadataKey)(Map(i -> sm), metadataCacheDurationTtl)
+            val sm = get(subject, id)
+            metadataCache.put(metadataKey)(Map(id -> sm), metadataCacheDurationTtl)
             sm
         }
       }
     }
   }
 
-  override def getVersion(s: String, schema: Schema): Int = synchronized {
-    if(DO_NOT_CACHE_LIST.exists(s.startsWith)) {
-      val response: io.confluent.kafka.schemaregistry.client.rest.entities.Schema = restService.lookUpSubjectVersion(schema.toString(), s, true)
+  private def getVersionInternal(subject: String, schema: Schema): Int = synchronized {
+    if (DO_NOT_CACHE_LIST.exists(subject.startsWith)) {
+      val response: io.confluent.kafka.schemaregistry.client.rest.entities.Schema = restService.lookUpSubjectVersion(schema.toString(), subject, true)
       response.getVersion.toInt
     } else {
-      val versionKey = buildVersionKey(s)
+      val versionKey = buildVersionKey(subject)
 
       versionCache.get(versionKey) match {
         case Failure(_) =>
-          val response: io.confluent.kafka.schemaregistry.client.rest.entities.Schema = restService.lookUpSubjectVersion(schema.toString(), s, true)
+          val response: io.confluent.kafka.schemaregistry.client.rest.entities.Schema = restService.lookUpSubjectVersion(schema.toString(), subject, true)
           versionCache.put(versionKey)(Map(schema -> response.getVersion.toInt), versionCacheDurationTtl)
           response.getVersion.toInt
         case Success(map) =>
@@ -446,12 +456,12 @@ class RedisSchemaRegistryClient(restService: RestService,
             case Some(m) if m.keySet.contains(schema) =>
               m(schema)
             case Some(m) =>
-              val response: io.confluent.kafka.schemaregistry.client.rest.entities.Schema = restService.lookUpSubjectVersion(schema.toString(), s, true)
+              val response: io.confluent.kafka.schemaregistry.client.rest.entities.Schema = restService.lookUpSubjectVersion(schema.toString(), subject, true)
               val concatMap: Map[Schema, Int] = m ++ Map(schema -> response.getVersion.toInt)
               versionCache.put(versionKey)(concatMap, versionCacheDurationTtl)
               response.getVersion.toInt
             case None =>
-              val response: io.confluent.kafka.schemaregistry.client.rest.entities.Schema = restService.lookUpSubjectVersion(schema.toString(), s, true)
+              val response: io.confluent.kafka.schemaregistry.client.rest.entities.Schema = restService.lookUpSubjectVersion(schema.toString(), subject, true)
               versionCache.put(versionKey)(Map(schema -> response.getVersion.toInt), versionCacheDurationTtl)
               response.getVersion.toInt
           }
@@ -491,7 +501,7 @@ class RedisSchemaRegistryClient(restService: RestService,
     restService.getAllSubjects()
   }
 
-  override def getId(s: String, schema: Schema): Int = synchronized {
+  private def getIdInternal(s: String, schema: Schema): Int = synchronized {
     if (DO_NOT_CACHE_LIST.exists(s.startsWith)) {
       restService.lookUpSubjectVersion(schema.toString, s, false).getId.toInt
     } else {
@@ -569,18 +579,19 @@ class RedisSchemaRegistryClient(restService: RestService,
     }
   }
 
-  override def register(s: String, schema: Schema, i: Int, i1: Int): Int = synchronized {
+  // scalastyle:off method.length
+  private def registerInternal(subject: String, schema: Schema, version: Int, id: Int): Int = synchronized {
     def register(): Int =
-      if (i >= 0) {
-        restService.registerSchema(schema.toString(), s, i, i1)
+      if (version >= 0) {
+        restService.registerSchema(schema.toString(), subject, version, id)
       } else {
-        restService.registerSchema(schema.toString(), s)
+        restService.registerSchema(schema.toString(), subject)
       }
 
-    if(DO_NOT_CACHE_LIST.exists(s.startsWith)) {
+    if (DO_NOT_CACHE_LIST.exists(subject.startsWith)) {
       register()
     } else {
-      val idKey = buildIdKey(s)
+      val idKey = buildIdKey(subject)
 
       def populateIdCache(sc: Schema, id: Int): Unit = {
         idCache.caching(idKey)(idCacheDurationTtl) {
@@ -594,7 +605,7 @@ class RedisSchemaRegistryClient(restService: RestService,
         }
       }
 
-      val schemaKey = buildSchemaKey(s)
+      val schemaKey = buildSchemaKey(subject)
 
       schemaCache.get(schemaKey) match {
         case Failure(_) =>
@@ -605,8 +616,8 @@ class RedisSchemaRegistryClient(restService: RestService,
           case Some(m) if m.exists(_._1 == schema) =>
             val cachedId = m(schema)
 
-            if (i1 >= 0 && i1 != cachedId) {
-              throw new IllegalStateException("Schema already registered with id " + cachedId + " instead of input id " + i1)
+            if (id >= 0 && id != cachedId) {
+              throw new IllegalStateException("Schema already registered with id " + cachedId + " instead of input id " + id)
             } else {
               cachedId
             }
@@ -636,7 +647,52 @@ class RedisSchemaRegistryClient(restService: RestService,
     getBySubjectAndId(s, i)
   }
 
-  override def testCompatibility(s: String, schema: Schema): Boolean = {
-    restService.testCompatibility(schema.toString(), s, "latest")
+//  override def testCompatibility(s: String, schema: Schema): Boolean = {
+//    val incompatibleErrors = restService.testCompatibility(schema.toString(), s, "latest")
+//    incompatibleErrors.isEmpty
+//  }
+
+  override def parseSchema(schemaType: String, schemaString: String,
+                           references: util.List[SchemaReference]): Optional[ParsedSchema] = {
+    val parsedSchema = new AvroSchemaProvider().parseSchemaOrElseThrow(schemaString, references, false)
+    Optional.of(parsedSchema)
+  }
+
+  override def register(subject: String, schema: ParsedSchema): Int = {
+    register(subject, schema, 0, -1)
+  }
+
+  override def register(subject: String, schema: ParsedSchema, version: Int, id: Int): Int = {
+    registerInternal(subject, toAvroSchema(schema), version, id)
+  }
+
+  override def getSchemaById(id: Int): ParsedSchema = {
+    toParsedSchema(getSchemaByIdInternal(id))
+  }
+
+  override def getSchemaBySubjectAndId(subject: String, id: Int): ParsedSchema = {
+    toParsedSchema(getSchemaBySubjectAndIdInternal(subject, id))
+  }
+
+  override def getVersion(subject: String, schema: ParsedSchema): Int = {
+    getVersionInternal(subject, toAvroSchema(schema))
+  }
+
+  override def testCompatibility(subject: String, schema: ParsedSchema): Boolean = {
+    val compatibilityErrors = restService.testCompatibility(toAvroSchema(schema).toString(), subject, "latest")
+    compatibilityErrors.isEmpty
+  }
+
+  override def getId(subject: String, schema: ParsedSchema): Int = {
+    getIdInternal(subject, toAvroSchema(schema))
+  }
+
+  private def toParsedSchema(avroSchema: Schema): ParsedSchema = new AvroSchema(avroSchema)
+
+  private def toAvroSchema(parsedSchema: ParsedSchema): Schema = {
+    parsedSchema match {
+      case s: AvroSchema => s.rawSchema
+      case _ => throw new RuntimeException(s"Non-avro schema is not allowed: ")
+    }
   }
 }

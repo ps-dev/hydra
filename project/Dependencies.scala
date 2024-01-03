@@ -12,12 +12,12 @@ object Dependencies {
   val catsRetryVersion = "2.1.0"
   val catsVersion = "2.4.2"
   val cirisVersion = "1.2.1"
-  val confluentVersion = "5.4.2"
+  val confluentVersion = "7.2.2"
   val fs2KafkaVersion = "1.4.1"
   val jacksonCoreVersion = "2.10.4"
   val jacksonDatabindVersion = "2.10.4"
-  val jodaConvertVersion = "2.2.1"
-  val jodaTimeVersion = "2.10.9"
+  val jodaConvertVersion = "2.2.3"
+  val jodaTimeVersion = "2.12.5"
   val kafkaVersion = "2.4.1"
   val kamonPVersion = "2.1.10"
   val kamonVersion = "2.1.10"
@@ -172,7 +172,7 @@ object Dependencies {
       val junit = "junit" % "junit" % "4.13.1" % module
 
       val embeddedKafka =
-        "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % "5.4.1" % module
+        "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % "7.2.2" % module
 
       val scalatestEmbeddedRedis = "com.github.sebruck" %% "scalatest-embedded-redis" % scalaTestEmbeddedRedisVersion % module
 
