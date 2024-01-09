@@ -16,7 +16,7 @@ lazy val defaultSettings = Seq(
   excludeDependencies += "org.slf4j" % "slf4j-log4j12",
   excludeDependencies += "log4j" % "log4j",
   dependencyOverrides ++= Seq(
-    "org.apache.commons" % "commons-lang3" % "3.13.0",
+//    "org.apache.commons" % "commons-lang3" % "3.13.0",
     "org.apache.commons" % "commons-compress" % "1.24.0",
 //    "org.apache.commons" % "lang3" % "3.1.0",
     "io.confluent" %% "kafka-schema-registry" % "7.2.2" % "test",
@@ -140,9 +140,6 @@ lazy val avro = Project(
     name := "hydra-avro",
     libraryDependencies ++= Dependencies.avroDeps
   )
-
-val sbSettings =
-  defaultSettings ++ Test.testSettings ++ noPublishSettings ++ restartSettings
 
 lazy val ingest = Project(
   id = "ingest",

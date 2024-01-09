@@ -322,9 +322,9 @@ class RedisSchemaRegistryClient(restService: RestService,
     }
   }
 
-  override def register(s: String, schema: Schema): Int = {
-    register(s, schema, 0, -1)
-  }
+//  override def register(s: String, schema: Schema): Int = {
+//    register(s, schema, 0, -1)
+//  }
 
   private def getSchemaByIdInternal(i: Int): Schema = synchronized {
     val restSchema = restService.getId(i)
@@ -639,13 +639,13 @@ class RedisSchemaRegistryClient(restService: RestService,
   override def reset(): Unit =
     println("The reset operation unsupported for a distributed cache.")
 
-  override def getByID(i: Int): Schema = {
-    getById(i)
-  }
+//  override def getByID(i: Int): Schema = {
+//    getById(i)
+//  }
 
-  override def getBySubjectAndID(s: String, i: Int): Schema = {
-    getBySubjectAndId(s, i)
-  }
+//  override def getBySubjectAndID(s: String, i: Int): Schema = {
+//    getBySubjectAndId(s, i)
+//  }
 
 //  override def testCompatibility(s: String, schema: Schema): Boolean = {
 //    val incompatibleErrors = restService.testCompatibility(schema.toString(), s, "latest")
