@@ -4,7 +4,7 @@ import cats.Eval
 import cats.effect.Sync
 import cats.syntax.all._
 import hydra.common.config.KafkaConfigUtils._
-import io.confluent.kafka.schemaregistry.avro.AvroCompatibilityChecker
+import io.confluent.kafka.schemaregistry.CompatibilityChecker
 import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException
 import io.confluent.kafka.schemaregistry.client.{CachedSchemaRegistryClient, MockSchemaRegistryClient, SchemaRegistryClient, SchemaRegistryClientConfig}
 import org.apache.avro.{LogicalType, LogicalTypes, Schema}
@@ -149,7 +149,7 @@ object SchemaRegistry {
 
 
   private[registry] def validate(newSchema: Schema, oldSchemas: List[Schema]): Boolean = {
-    AvroCompatibilityChecker.FULL_TRANSITIVE_CHECKER.isCompatible(newSchema, oldSchemas.asJava)
+    CompatibilityChecker.FULL_TRANSITIVE_CHECKER.isCompatible(newSchema, oldSchemas.asJava)
   }
 
   def live[F[_] : Sync : Logger : Sleep](
