@@ -9,7 +9,7 @@ import hydra.core.transport.{AckStrategy, RecordMetadata, TransportCallback}
 import hydra.kafka.producer.{DeleteTombstoneRecord, JsonRecord, StringRecord}
 import hydra.kafka.transport.KafkaProducerProxy.ProducerInitializationError
 import hydra.kafka.transport.KafkaTransport.RecordProduceError
-import net.manub.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
+import io.github.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
 import org.apache.kafka.common.KafkaException
 import org.apache.kafka.common.errors.SerializationException
 import org.scalatest.matchers.should.Matchers

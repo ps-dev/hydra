@@ -19,7 +19,7 @@ lazy val defaultSettings = Seq(
 //    "org.apache.commons" % "commons-lang3" % "3.13.0",
     "org.apache.commons" % "commons-compress" % "1.24.0",
 //    "org.apache.commons" % "lang3" % "3.1.0",
-    "io.confluent" %% "kafka-schema-registry" % "7.2.2" % "test",
+    "io.confluent" %% "kafka-schema-registry" % "7.2.2" % "test" excludeAll(ExclusionRule("org.apache.kafka"), ExclusionRule("org.apache.zookeeper")),
     "io.confluent" %% "kafka-avro-serializer" % "7.2.2" % "test"
   ),
   addCompilerPlugin(
@@ -111,7 +111,7 @@ lazy val core = Project(
     name := "hydra-core",
     libraryDependencies ++= Dependencies.coreDeps ++ Dependencies.awsAuthDeps,
     dependencyOverrides ++= Seq(
-      "io.confluent" %% "kafka-schema-registry" % "7.2.2",
+      "io.confluent" %% "kafka-schema-registry" % "7.2.2" exclude("org.apache.kafka", "kafka-clients"),
       "io.confluent" %% "kafka-avro-serializer" % "7.2.2"
     )
   )
@@ -126,7 +126,7 @@ lazy val kafka = Project(
     name := "hydra-kafka",
     libraryDependencies ++= Dependencies.kafkaDeps,
     dependencyOverrides ++= Seq(
-      "io.confluent" %% "kafka-schema-registry" % "7.2.2",
+      "io.confluent" %% "kafka-schema-registry" % "7.2.2" exclude("org.apache.kafka", "kafka-clients"),
       "io.confluent" %% "kafka-avro-serializer" % "7.2.2"
     )
   )
