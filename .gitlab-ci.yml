@@ -11,12 +11,6 @@
 # but an image with a JVM speeds up the build a bit.
 image: openjdk:8
 
-stages:
-  - build
-  - package
-  - deploy
-
-
 before_script:
   # Enable the usage of sources over https
   - apt-get update -yqq
@@ -39,25 +33,16 @@ build:
     # Execute your project's tests
     - sbt clean compile test
     - sbt universal:packageBin
-
-package:
-  stage: package
-  script:
-    # Execute your project's tests
-   - ls
-   - unzip ingest/target/universal/*.zip -d ps-publish
-   - ls
-   - mv ps-publish/hydra-ingest*/* ps-publish
-   - rm -rf ps-publish/hydra-ingest*
-   - cd ps-publish/bin
-   - ls -la
-   - curl -O https://download.newrelic.com/newrelic/java-agent/newrelic-agent/4.4.0/newrelic-agent-4.4.0.jar
-   - curl -O https://download.newrelic.com/newrelic/java-agent/newrelic-agent/4.4.0/newrelic.yml
-   - cd ../../
-   - echo %build.number% > VERSION
-   - tar czf %env.ARTIFACT_NAME%-%build.number%.tgz --exclude=*.tmp --exclude=*.tgz --exclude=*.tgz.md5 VERSION ps-publish/
-   - echo "##teamcity[publishArtifacts '%env.ARTIFACT_NAME%-%build.number%.tgz']"
-
-deploy:
-  stage: deploy
-  script: echo "Define your deployment script!"
+    - ls
+    - unzip ingest/target/universal/*.zip -d ps-publish
+    - ls
+    - mv ps-publish/hydra-ingest*/* ps-publish
+    - rm -rf ps-publish/hydra-ingest*
+    - cd ps-publish/bin
+    - ls -la
+    - curl -O https://download.newrelic.com/newrelic/java-agent/newrelic-agent/4.4.0/newrelic-agent-4.4.0.jar
+    - curl -O https://download.newrelic.com/newrelic/java-agent/newrelic-agent/4.4.0/newrelic.yml
+    - cd ../../
+    - echo %build.number% > VERSION
+    - tar czf %env.ARTIFACT_NAME%-%build.number%.tgz --exclude=*.tmp --exclude=*.tgz --exclude=*.tgz.md5 VERSION ps-publish/
+    - echo "##teamcity[publishArtifacts '%env.ARTIFACT_NAME%-%build.number%.tgz']"
