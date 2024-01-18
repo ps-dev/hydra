@@ -31,8 +31,11 @@ build:
   stage: build
   script:
     # Execute your project's tests
+    # Clean compile Test
     - sbt clean compile test
+    #Package
     - sbt universal:packageBin
+    # Zip Artifact with Dependency Libs
     - ls
     - unzip ingest/target/universal/*.zip -d ps-publish
     - ls
@@ -46,3 +49,18 @@ build:
     - echo %build.number% > VERSION
     - tar czf %env.ARTIFACT_NAME%-%build.number%.tgz --exclude=*.tmp --exclude=*.tgz --exclude=*.tgz.md5 VERSION ps-publish/
     - echo "##teamcity[publishArtifacts '%env.ARTIFACT_NAME%-%build.number%.tgz']"
+    # Md5sum and Publish Md5Sum Artifact
+    - md5sum %env.ARTIFACT_NAME%-%build.number%.tgz > %env.ARTIFACT_NAME%-%build.number%.tgz.md5
+    - echo "##teamcity[publishArtifacts '%env.ARTIFACT_NAME%-%build.number%.tgz.md5']"
+    # Docker Build and Docker Push
+    - pwd
+    - ls -lh
+    - docker build -t %image.name% -f Dockerfile.new .
+    - docker tag %image.name% harbor.vnerd.com/library/%image.name%:%build.number%
+    - docker push harbor.vnerd.com/library/%image.name%:%build.number%
+    - docker tag %image.name% harbor.vnerd.com/library/%image.name%:latest
+    - docker push harbor.vnerd.com/library/%image.name%:latest
+    # Update VERSION File
+    - CURYEAR=$(date +%Y)
+    - CURMONTH=$(date +%-m)
+    - echo -n "${CURYEAR}.${CURMONTH}.%env.BUILD_NUMBER%.%teamcity.build.id%" > VERSION
