@@ -11,6 +11,12 @@
 # but an image with a JVM speeds up the build a bit.
 image: openjdk:8
 
+stages:
+  - build
+  - package
+  - deploy
+
+
 before_script:
   # Enable the usage of sources over https
   - apt-get update -yqq
@@ -26,13 +32,16 @@ before_script:
   # Log the sbt version
   - sbt sbtVersion
 
+
 build:
+  stage: build
   script:
     # Execute your project's tests
     - sbt clean compile test
     - sbt universal:packageBin
 
 package:
+  stage: package
   script:
     # Execute your project's tests
    - ls
@@ -48,7 +57,6 @@ package:
    - echo %build.number% > VERSION
    - tar czf %env.ARTIFACT_NAME%-%build.number%.tgz --exclude=*.tmp --exclude=*.tgz --exclude=*.tgz.md5 VERSION ps-publish/
    - echo "##teamcity[publishArtifacts '%env.ARTIFACT_NAME%-%build.number%.tgz']"
-
 
 deploy:
   stage: deploy
