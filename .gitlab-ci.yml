@@ -32,6 +32,7 @@ before_script:
   - sbt sbtVersion
   # Install docker 
   - apt-get install docker -yqq
+  - docker --version
 
 
 build:
