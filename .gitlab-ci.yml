@@ -11,6 +11,11 @@
 # but an image with a JVM speeds up the build a bit.
 image: openjdk:8
 
+variables:
+  ARTIFACT_NAME: hydra-publish
+  IMAGE_NAME: hydra
+
+
 before_script:
   # Enable the usage of sources over https
   - apt-get update -yqq
@@ -48,21 +53,21 @@ build:
     - curl -O https://download.newrelic.com/newrelic/java-agent/newrelic-agent/4.4.0/newrelic-agent-4.4.0.jar
     - curl -O https://download.newrelic.com/newrelic/java-agent/newrelic-agent/4.4.0/newrelic.yml
     - cd ../../
-    - echo %build.number% > VERSION
-    - tar czf %env.ARTIFACT_NAME%-%build.number%.tgz --exclude=*.tmp --exclude=*.tgz --exclude=*.tgz.md5 VERSION ps-publish/
-    - echo "##teamcity[publishArtifacts '%env.ARTIFACT_NAME%-%build.number%.tgz']"
+    - echo $CI_PIPELINE_IID > VERSION
+    - tar czf ${ARTIFACT_NAME}-${CI_PIPELINE_IID}.tgz --exclude=*.tmp --exclude=*.tgz --exclude=*.tgz.md5 VERSION ps-publish/
+    - echo "##teamcity[publishArtifacts '%env.ARTIFACT_NAME%-${CI_PIPELINE_IID}.tgz']"
     # Md5sum and Publish Md5Sum Artifact
-    - md5sum %env.ARTIFACT_NAME%-%build.number%.tgz > %env.ARTIFACT_NAME%-%build.number%.tgz.md5
-    - echo "##teamcity[publishArtifacts '%env.ARTIFACT_NAME%-%build.number%.tgz.md5']"
+    - md5sum ${ARTIFACT_NAME}-${CI_PIPELINE_IID}.tgz > ${ARTIFACT_NAME}-${CI_PIPELINE_IID}.tgz.md5
+    - echo "##teamcity[publishArtifacts '%env.ARTIFACT_NAME%-${CI_PIPELINE_IID}.tgz.md5']"
     # Docker Build and Docker Push
     - pwd
     - ls -lh
-    - docker build -t %image.name% -f Dockerfile.new .
-    - docker tag %image.name% harbor.vnerd.com/library/%image.name%:%build.number%
-    - docker push harbor.vnerd.com/library/%image.name%:%build.number%
-    - docker tag %image.name% harbor.vnerd.com/library/%image.name%:latest
-    - docker push harbor.vnerd.com/library/%image.name%:latest
+    - docker build -t ${IMAGE_NAME} -f Dockerfile.new .
+    - docker tag ${IMAGE_NAME} harbor.vnerd.com/library/${IMAGE_NAME}:${CI_PIPELINE_IID}
+    - docker push harbor.vnerd.com/library/${IMAGE_NAME}:${CI_PIPELINE_IID}
+    - docker tag ${IMAGE_NAME} harbor.vnerd.com/library/${IMAGE_NAME}:latest
+    - docker push harbor.vnerd.com/library/${IMAGE_NAME}:latest
     # Update VERSION File
     - CURYEAR=$(date +%Y)
     - CURMONTH=$(date +%-m)
-    - echo -n "${CURYEAR}.${CURMONTH}.%env.BUILD_NUMBER%.%teamcity.build.id%" > VERSION
+    - echo -n "${CURYEAR}.${CURMONTH}.${CI_PIPELINE_IID} > VERSION
