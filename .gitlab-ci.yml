@@ -26,11 +26,6 @@ before_script:
   # Log the sbt version
   - sbt sbtVersion
 
-test:
-  script:
-    # Execute your project's tests
-    - sbt clean test
-
 build:
   script:
     # Execute your project's tests
