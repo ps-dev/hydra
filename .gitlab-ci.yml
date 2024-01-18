@@ -31,8 +31,8 @@ before_script:
   # Log the sbt version
   - sbt sbtVersion
   # Install docker 
+  - apt-get install apt-utils 
   - apt-get install docker -yqq
-  - apt-get install apt-utils
   - docker --version
 
 build:
