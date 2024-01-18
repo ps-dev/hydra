@@ -26,7 +26,7 @@ before_script:
   # Log the sbt version
   - sbt sbtVersion
   # Install docker 
-  - sudo apt install docker-ce
+  - apt install docker-ce
 
 
 build:
