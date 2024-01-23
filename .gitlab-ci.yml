@@ -32,7 +32,10 @@ before_script:
   - sbt sbtVersion
   # Install docker 
   - apt-get install apt-utils 
-  - apt-get install docker -yqq
+  - apt-get update -yqq
+  - apt-get install docker.io -yqq
+  - curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+  - echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
   - docker --version
 
 build:
