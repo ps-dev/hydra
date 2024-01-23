@@ -69,6 +69,7 @@ build:
     - ls -lh
     - docker build -t ${IMAGE_NAME} -f Dockerfile.new .
     - docker tag ${IMAGE_NAME} harbor.vnerd.com/library/${IMAGE_NAME}:${CI_PIPELINE_IID}
+    - docker login -u $DOCKER_REGISTRY_USERNAME -p $DOCKER_REGISTRY_PASSWORD harbor.vnerd.com
     - docker push harbor.vnerd.com/library/${IMAGE_NAME}:${CI_PIPELINE_IID}
     - docker tag ${IMAGE_NAME} harbor.vnerd.com/library/${IMAGE_NAME}:latest
     - docker push harbor.vnerd.com/library/${IMAGE_NAME}:latest
