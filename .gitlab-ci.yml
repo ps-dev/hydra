@@ -1,56 +1,34 @@
-# You can copy and paste this template into a new `.gitlab-ci.yml` file.
-# You should not add this template to an existing `.gitlab-ci.yml` file by using the `include:` keyword.
-#
-# To contribute improvements to CI/CD templates, please follow the Development guide at:
-# https://docs.gitlab.com/ee/development/cicd/templates.html
-# This specific template is located at:
-# https://gitlab.com/gitlab-org/gitlab/-/blob/master/lib/gitlab/ci/templates/Scala.gitlab-ci.yml
-
-# Official OpenJDK Java image. Look for the different tagged releases at
-# https://hub.docker.com/_/openjdk/ . A Java image is not required
-# but an image with a JVM speeds up the build a bit.
 image: openjdk:8
 
 variables:
   ARTIFACT_NAME: hydra-publish
   IMAGE_NAME: hydra
-
+  DOCKER_REGISTRY_IMAGE: harbor.vnerd.com/library/${IMAGE_NAME}
 
 before_script:
-  # Enable the usage of sources over https
   - apt-get update -yqq
-  - apt-get install apt-transport-https -yqq
-  # Add keyserver for SBT
-  - echo "deb https://repo.scala-sbt.org/scalasbt/debian /" | tee -a /etc/apt/sources.list.d/sbt.list
-  - mkdir -p /root/.gnupg
-  - gpg --recv-keys --no-default-keyring --keyring gnupg-ring:/etc/apt/trusted.gpg.d/scalasbt-release.gpg --keyserver hkp://keyserver.ubuntu.com:80 2EE0EA64E40A89B84B2DF73499E82A75642AC823
-  - chmod 644 /etc/apt/trusted.gpg.d/scalasbt-release.gpg
-  # Install SBT
-  - apt-get update -yqq
-  - apt-get install sbt -yqq
-  # Log the sbt version
-  - sbt sbtVersion
-  # Install docker 
-  - apt-get install apt-utils 
-  - apt-get update -yqq
-  - apt-get install docker.io -yqq
+  - apt-get install -yqq apt-transport-https apt-utils sbt docker.io
   - curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
   - echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
   - docker --version
   - service docker start
 
+stages:
+  - build
+  - package
+  - publish
+  - finalize
+
 build:
   stage: build
   script:
-    # Execute your project's tests
-    # Clean compile Test
     - sbt clean compile test
-    #Package
+
+package:
+  stage: package
+  script:
     - sbt universal:packageBin
-    # Zip Artifact with Dependency Libs
-    - ls
-    - unzip ingest/target/universal/*.zip -d ps-publish
-    - ls
+    - ls ingest/target/universal/*.zip | xargs -I {} unzip {} -d ps-publish
     - mv ps-publish/hydra-ingest*/* ps-publish
     - rm -rf ps-publish/hydra-ingest*
     - cd ps-publish/bin
@@ -61,19 +39,22 @@ build:
     - echo $CI_PIPELINE_IID > VERSION
     - tar czf ${ARTIFACT_NAME}-${CI_PIPELINE_IID}.tgz --exclude=*.tmp --exclude=*.tgz --exclude=*.tgz.md5 VERSION ps-publish/
     - echo "##teamcity[publishArtifacts '%env.ARTIFACT_NAME%-${CI_PIPELINE_IID}.tgz']"
-    # Md5sum and Publish Md5Sum Artifact
+
+publish:
+  stage: publish
+  script:
     - md5sum ${ARTIFACT_NAME}-${CI_PIPELINE_IID}.tgz > ${ARTIFACT_NAME}-${CI_PIPELINE_IID}.tgz.md5
     - echo "##teamcity[publishArtifacts '%env.ARTIFACT_NAME%-${CI_PIPELINE_IID}.tgz.md5']"
-    # Docker Build and Docker Push
-    - pwd
-    - ls -lh
     - docker build -t ${IMAGE_NAME} -f Dockerfile.new .
-    - docker tag ${IMAGE_NAME} harbor.vnerd.com/library/${IMAGE_NAME}:${CI_PIPELINE_IID}
-    #- docker login -u $DOCKER_REGISTRY_USERNAME -p $DOCKER_REGISTRY_PASSWORD harbor.vnerd.com
-    - docker push $DOCKER_REGISTRY_USERNAME -p $DOCKER_REGISTRY_PASSWORD harbor.vnerd.com/library/${IMAGE_NAME}:${CI_PIPELINE_IID}
-    - docker tag ${IMAGE_NAME} harbor.vnerd.com/library/${IMAGE_NAME}:latest
-    - docker push $DOCKER_REGISTRY_USERNAME -p $DOCKER_REGISTRY_PASSWORD harbor.vnerd.com/library/${IMAGE_NAME}:latest
-    # Update VERSION File
+    - docker tag ${IMAGE_NAME} ${DOCKER_REGISTRY_IMAGE}:${CI_PIPELINE_IID}
+
+finalize:
+  stage: finalize
+  script:
+    - docker push ${DOCKER_REGISTRY_IMAGE}:${CI_PIPELINE_IID}
+    - docker tag ${IMAGE_NAME} ${DOCKER_REGISTRY_IMAGE}:latest
+    - docker push ${DOCKER_REGISTRY_IMAGE}:latest
     - CURYEAR=$(date +%Y)
     - CURMONTH=$(date +%-m)
-    - echo -n "${CURYEAR}.${CURMONTH}.${CI_PIPELINE_IID} > VERSION
+    - echo -n "${CURYEAR}.${CURMONTH}.${CI_PIPELINE_IID}" > VERSION
+
