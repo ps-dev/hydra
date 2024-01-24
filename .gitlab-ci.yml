@@ -14,7 +14,8 @@ before_script:
   - chmod 644 /etc/apt/trusted.gpg.d/scalasbt-release.gpg
   - apt-get update -yqq
   - apt-get install -yqq sbt docker.io
-  - docker login -u ${DOCKER_REGISTRY_USERNAME} -p ${DOCKER_REGISTRY_PASSWORD} harbor.vnerd.com
+  - docker login harbor.vnerd.com -u ${DOCKER_REGISTRY_USERNAME} -p ${DOCKER_REGISTRY_PASSWORD}
+  - echo "${DOCKER_REGISTRY_USERNAME}"
 
 stages:
   - build
