@@ -19,8 +19,12 @@ lazy val defaultSettings = Seq(
 //    "org.apache.commons" % "commons-lang3" % "3.13.0",
     "org.apache.commons" % "commons-compress" % "1.24.0",
 //    "org.apache.commons" % "lang3" % "3.1.0",
-    "io.confluent" %% "kafka-schema-registry" % "7.2.2" % "test" excludeAll(ExclusionRule("org.apache.kafka"), ExclusionRule("org.apache.zookeeper")),
-    "io.confluent" %% "kafka-avro-serializer" % "7.2.2" % "test"
+    "io.confluent" %% "kafka-schema-registry" % "6.2.1" % "test", // excludeAll(ExclusionRule("org.apache.kafka")),
+    "io.confluent" %% "kafka-avro-serializer" % "6.2.1" % "test",
+//    "org.apache.kafka" %% "kafka" % "2.8.2" % "test",
+//    "org.apache.zookeeper" % "zookeeper" % "3.5.9" % "test"
+//    "org.apache.zookeeper" % "zookeeper" % "3.5.9",
+//    "org.apache.zookeeper" % "zookeeper" % "3.5.9" % "test"
   ),
   addCompilerPlugin(
     "org.typelevel" %% "kind-projector" % "0.11.3" cross CrossVersion.full
@@ -36,6 +40,7 @@ lazy val defaultSettings = Seq(
     "-deprecation",
     "-unchecked",
     "-Ypartial-unification"
+//    "-Ylog-classpath"
   ),
   javacOptions in Compile ++= Seq(
     "-encoding",
@@ -109,10 +114,10 @@ lazy val core = Project(
   .settings(
     moduleSettings,
     name := "hydra-core",
-    libraryDependencies ++= Dependencies.coreDeps ++ Dependencies.awsAuthDeps,
+    libraryDependencies ++= Dependencies.coreDeps ++ Dependencies.awsAuthDeps ++ Dependencies.kafkaSchemaRegistryDep,
     dependencyOverrides ++= Seq(
-      "io.confluent" %% "kafka-schema-registry" % "7.2.2" exclude("org.apache.kafka", "kafka-clients"),
-      "io.confluent" %% "kafka-avro-serializer" % "7.2.2"
+      "org.apache.kafka" %% "kafka" % "2.8.2" % "compile,runtime",
+      "org.apache.kafka" % "kafka-clients" % "2.8.2" % "compile,runtime"
     )
   )
 
@@ -126,8 +131,8 @@ lazy val kafka = Project(
     name := "hydra-kafka",
     libraryDependencies ++= Dependencies.kafkaDeps,
     dependencyOverrides ++= Seq(
-      "io.confluent" %% "kafka-schema-registry" % "7.2.2" exclude("org.apache.kafka", "kafka-clients"),
-      "io.confluent" %% "kafka-avro-serializer" % "7.2.2"
+      "org.apache.kafka" %% "kafka" % "2.8.2" % "compile,runtime",
+      "org.apache.kafka" % "kafka-clients" % "2.8.2" % "compile,runtime"
     )
   )
 

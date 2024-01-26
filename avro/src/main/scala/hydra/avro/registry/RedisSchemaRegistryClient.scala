@@ -654,8 +654,8 @@ class RedisSchemaRegistryClient(restService: RestService,
 
   override def parseSchema(schemaType: String, schemaString: String,
                            references: util.List[SchemaReference]): Optional[ParsedSchema] = {
-    val parsedSchema = new AvroSchemaProvider().parseSchemaOrElseThrow(schemaString, references, false)
-    Optional.of(parsedSchema)
+    val parsedSchema = new AvroSchemaProvider().parseSchema(schemaString, references, false)
+    parsedSchema
   }
 
   override def register(subject: String, schema: ParsedSchema): Int = {

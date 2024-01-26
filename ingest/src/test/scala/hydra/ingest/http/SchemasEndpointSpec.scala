@@ -23,7 +23,7 @@ import org.apache.kafka.common.{Node, PartitionInfo}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
 import spray.json.{JsArray, JsObject, JsValue, RootJsonFormat}
-import net.manub.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
+import io.github.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
 
 import scala.collection.immutable.Map
 import scala.concurrent.duration._

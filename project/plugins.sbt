@@ -2,6 +2,8 @@ logLevel := Level.Warn
 
 resolvers += Classpaths.sbtPluginReleases
 
+//addSbtPlugin("io.get-coursier" % "sbt-coursier" % "2.0.8")
+//addSbtPlugin("ch.epfl.scala" % "sbt-missinglink" % "0.3.1")
 addDependencyTreePlugin
 addSbtPlugin("com.typesafe.sbt" % "sbt-native-packager" % "1.2.2-RC2")
 addSbtPlugin("com.eed3si9n" % "sbt-buildinfo" % "0.9.0")

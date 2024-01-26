@@ -85,8 +85,11 @@ class KafkaTransportSpec
 
     it("forwards to the right proxy") {
       val ack: TransportCallback =
-        (d: Long, m: Option[RecordMetadata], e: Option[Throwable]) =>
-          ingestor.ref ! "DONE"
+        (d: Long, m: Option[RecordMetadata], e: Option[Throwable]) => {
+          val msg = if(e.isDefined) e.get.getMessage else "DONE"
+          ingestor.ref ! msg
+        }
+
       val rec =
         StringRecord("transport_test", "key", "payload", AckStrategy.NoAck)
       transport ! Deliver(rec, 1, ack)
@@ -95,8 +98,11 @@ class KafkaTransportSpec
 
     it("handles delete records") {
       val ack: TransportCallback =
-        (d: Long, m: Option[RecordMetadata], e: Option[Throwable]) =>
-          ingestor.ref ! "DONE"
+        (d: Long, m: Option[RecordMetadata], e: Option[Throwable]) => {
+          val msg = if(e.isDefined) e.get.getMessage else "DONE"
+          ingestor.ref ! msg
+        }
+
       val rec =
         DeleteTombstoneRecord("transport_test", "key", AckStrategy.NoAck)
       transport ! Deliver(rec, 1, ack)

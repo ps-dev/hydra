@@ -102,7 +102,7 @@ class ConfluentSchemaRegistrySpec
         """.stripMargin)
 
       val client = ConfluentSchemaRegistry.forConfig(config, emptySchemaRegistrySecurityConfig).registryClient
-      val field = client.getClass.getDeclaredField("cacheCapacity")
+      val field = client.getClass.getDeclaredField("identityMapCapacity")
       field.setAccessible(true)
       assert(1234 === field.get(client))
     }
