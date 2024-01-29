@@ -25,25 +25,10 @@ before_script:
   #- echo ${DOCKER_REGISTRY_PASSWORD} | docker login ${DOCKER_REGISTRY_URL} -u ${DOCKER_REGISTRY_USER} --password-stdin
   
 stages:
-  - prestep
   - build
   - package
   - publish
   - finalize
-
-prestep:
-  stage: prestep
-  image: harbor.vnerd.com/proxy/library/docker:cli
-  tags:
-    - ps
-    - docker
-  before_script:
-    - echo ${DOCKER_REGISTRY_PASSWORD} | docker login ${DOCKER_REGISTRY_URL} -u ${DOCKER_REGISTRY_USERNAME} --password-stdin
-    #- echo -n "$DOCKER_REGISTRY_PASSWORD" | docker login -u "$DOCKER_REGISTRY_USERNAME" --password-stdin "$DOCKER_REGISTRY_URL"
-  script:
-    - echo "##teamcity[publishArtifacts '%env.ARTIFACT_NAME%-${CI_PIPELINE_IID}.tgz.md5']"
-    - docker build -t ${IMAGE_NAME} -f Dockerfile.new .
-    - docker tag ${IMAGE_NAME} ${DOCKER_REGISTRY_IMAGE}:${CI_PIPELINE_IID}
 
 build:
   stage: build
@@ -65,7 +50,6 @@ package:
     - echo $CI_PIPELINE_IID > VERSION
     - tar czf ${ARTIFACT_NAME}-${CI_PIPELINE_IID}.tgz --exclude=*.tmp --exclude=*.tgz --exclude=*.tgz.md5 VERSION ps-publish/
     - echo "##teamcity[publishArtifacts '%env.ARTIFACT_NAME%-${CI_PIPELINE_IID}.tgz']"
-
 
 publish:
   stage: publish
