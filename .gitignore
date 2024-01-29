@@ -72,3 +72,6 @@ build.properties
 .ensime_cache
 
 .bsp
+
+# ignore temp files and folders
+__temp*
