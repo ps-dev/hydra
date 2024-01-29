@@ -59,7 +59,6 @@ publish:
   before_script:
     - echo -n "$DOCKER_REGISTRY_PASSWORD" | docker login -u "$DOCKER_REGISTRY_USERNAME" --password-stdin "$DOCKER_REGISTRY_URL"
   script:
-    - gitlab-runner download-artifact --token "$CI_JOB_TOKEN" --project "$CI_PROJECT_ID" --job "$CI_JOB_ID" --artifact ${ARTIFACT_NAME}-${CI_PIPELINE_IID}.tgz
     - pwd
     - ls -lh
     - cp ${ARTIFACT_NAME}-${CI_PIPELINE_IID}.tgz .
