@@ -5,8 +5,6 @@ variables:
   IMAGE_NAME: hydra
   DOCKER_REGISTRY_IMAGE: harbor.vnerd.com/library/${IMAGE_NAME}
   DOCKER_REGISTRY_URL: "harbor.vnerd.com"
-  DOCKER_REGISTRY_USERNAME: $DOCKER_REGISTRY_USERNAME
-  DOCKER_REGISTRY_PASSWORD: $DOCKER_REGISTRY_PASSWORD
 
 before_script:
   - apt-get update -yqq
