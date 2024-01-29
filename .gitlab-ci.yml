@@ -70,6 +70,9 @@ package:
 publish:
   stage: publish
   image: harbor.vnerd.com/proxy/library/docker:cli
+  tags:
+    - ps
+    - docker
   before_script:
     - echo -n "$DOCKER_REGISTRY_PASSWORD" | docker login -u "$DOCKER_REGISTRY_USERNAME" --password-stdin "$DOCKER_REGISTRY_URL"
   script:
@@ -80,6 +83,12 @@ publish:
 
 finalize:
   stage: finalize
+  image: harbor.vnerd.com/proxy/library/docker:cli
+  tags:
+    - ps
+    - docker
+  before_script:
+    - echo -n "$DOCKER_REGISTRY_PASSWORD" | docker login -u "$DOCKER_REGISTRY_USERNAME" --password-stdin "$DOCKER_REGISTRY_URL"
   script:
     - docker push ${DOCKER_REGISTRY_IMAGE}:${CI_PIPELINE_IID}
     - docker tag ${IMAGE_NAME} ${DOCKER_REGISTRY_IMAGE}:latest
