@@ -20,6 +20,7 @@ lazy val defaultSettings = Seq(
     "io.netty" % "netty-codec" % "4.1.77.Final",
 //    "org.apache.zookeeper" % "zookeeper" % "3.7.2",
     "org.xerial.snappy" % "snappy-java" % "1.1.10.4",
+    "org.apache.avro" % "avro" % Dependencies.avroVersion,
     "com.fasterxml.jackson.core" % "jackson-databind" % "2.13.3",
     "io.confluent" %% "kafka-schema-registry" % "6.2.1" % "test",
     "io.confluent" %% "kafka-avro-serializer" % "6.2.1" % "test",
