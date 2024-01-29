@@ -51,6 +51,7 @@ package:
     paths:
       - ${ARTIFACT_NAME}-${CI_PIPELINE_IID}.tgz
       - ${ARTIFACT_NAME}-${CI_PIPELINE_IID}.tgz.md5
+      - ps-publish/
 
 publish:
   stage: publish
