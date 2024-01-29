@@ -61,7 +61,6 @@ publish:
   script:
     - pwd
     - ls -lh
-    - cp ${ARTIFACT_NAME}-${CI_PIPELINE_IID}.tgz .
     - md5sum ${ARTIFACT_NAME}-${CI_PIPELINE_IID}.tgz > ${ARTIFACT_NAME}-${CI_PIPELINE_IID}.tgz.md5
     - echo "##teamcity[publishArtifacts '%env.ARTIFACT_NAME%-${CI_PIPELINE_IID}.tgz.md5']"
     - docker build -t ${IMAGE_NAME} -f Dockerfile.new .
