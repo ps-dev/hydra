@@ -4,7 +4,7 @@ variables:
   ARTIFACT_NAME: hydra-publish
   IMAGE_NAME: hydra
   DOCKER_REGISTRY_IMAGE: harbor.vnerd.com/library/${IMAGE_NAME}
-  DOCKER_REGISTRY_URL: "harbor.vnerd.com"
+  DOCKER_REGISTRY_URL: "harbor.vnerd.com/library"
 
 before_script:
   - apt-get update -yqq
@@ -31,7 +31,8 @@ prestep:
   stage: prestep
   image: harbor.vnerd.com/proxy/library/docker:cli
   before_script:
-    - echo -n "$DOCKER_REGISTRY_PASSWORD" | docker login -u "$DOCKER_REGISTRY_USERNAME" --password-stdin "$DOCKER_REGISTRY_URL"
+    - echo ${DOCKER_REGISTRY_PASSWORD} | docker login ${DOCKER_REGISTRY_URL} -u ${DOCKER_REGISTRY_USERNAME} --password-stdin
+    #- echo -n "$DOCKER_REGISTRY_PASSWORD" | docker login -u "$DOCKER_REGISTRY_USERNAME" --password-stdin "$DOCKER_REGISTRY_URL"
   script:
     - echo "##teamcity[publishArtifacts '%env.ARTIFACT_NAME%-${CI_PIPELINE_IID}.tgz.md5']"
     - docker build -t ${IMAGE_NAME} -f Dockerfile.new .
