@@ -139,10 +139,9 @@ object KafkaUtils extends ConfigSupport {
   def producerSettings(cfg: Config, kafkaClientSecurityConfig: KafkaClientSecurityConfig): Map[String, ProducerSettings[Any, Any]] = {
     val clientsConfig = cfg.getConfig(s"$applicationName.kafka.clients")
     val clients = clientsConfig.root().entrySet().asScala.map(_.getKey)
-    val res = clients
+    clients
       .map(client => client -> producerSettings[Any, Any](client, cfg, kafkaClientSecurityConfig))
       .toMap
-    res
   }
 
   def consumerSettings[K, V](

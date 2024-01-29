@@ -322,34 +322,6 @@ class RedisSchemaRegistryClient(restService: RestService,
     }
   }
 
-//  override def register(s: String, schema: Schema): Int = {
-//    register(s, schema, 0, -1)
-//  }
-
-  private def getSchemaByIdInternal(i: Int): Schema = synchronized {
-    val restSchema = restService.getId(i)
-    val parser = new Schema.Parser()
-    parser.setValidateDefaults(false)
-    parser.parse(restSchema.getSchemaString)
-  }
-
-  private def getSchemaBySubjectAndIdInternal(s: String, i: Int): Schema = {
-    if (DO_NOT_CACHE_LIST.exists(s.startsWith)) {
-      restGetSchemaById(s, i)
-    } else {
-      val idKey = buildIdKey(s)
-
-      idCache.get(idKey) match {
-        case Failure(_) => restGetId(s, i)(i)
-        case Success(map) =>
-          map match {
-            case Some(m) if m.keys.exists(_ == i) => m(i)
-            case _ => getBySubjectAndIdSynchronized(s, i)
-          }
-      }
-    }
-  }
-
   private def restGetSchemaById(s: String, i: Int): Schema = {
     val restSchema = restService.getId(i)
     val parser = new Schema.Parser()
@@ -397,13 +369,6 @@ class RedisSchemaRegistryClient(restService: RestService,
     new SchemaMetadata(id, version, schema)
   }
 
-/*  override def getSchemaMetadata(s: String, i: Int): SchemaMetadata = {
-    val response = restService.getVersion(s, i)
-    val id = response.getId
-    val schema: String = response.getSchema
-    new SchemaMetadata(id, i, schema)
-  }*/
-
   override def getSchemaMetadata(subject: String, id: Int): SchemaMetadata = {
     def get(s: String, i: Int): SchemaMetadata = {
       val response = restService.getVersion(s, i)
@@ -439,36 +404,6 @@ class RedisSchemaRegistryClient(restService: RestService,
     }
   }
 
-  private def getVersionInternal(subject: String, schema: Schema): Int = synchronized {
-    if (DO_NOT_CACHE_LIST.exists(subject.startsWith)) {
-      val response: io.confluent.kafka.schemaregistry.client.rest.entities.Schema = restService.lookUpSubjectVersion(schema.toString(), subject, true)
-      response.getVersion.toInt
-    } else {
-      val versionKey = buildVersionKey(subject)
-
-      versionCache.get(versionKey) match {
-        case Failure(_) =>
-          val response: io.confluent.kafka.schemaregistry.client.rest.entities.Schema = restService.lookUpSubjectVersion(schema.toString(), subject, true)
-          versionCache.put(versionKey)(Map(schema -> response.getVersion.toInt), versionCacheDurationTtl)
-          response.getVersion.toInt
-        case Success(map) =>
-          map match {
-            case Some(m) if m.keySet.contains(schema) =>
-              m(schema)
-            case Some(m) =>
-              val response: io.confluent.kafka.schemaregistry.client.rest.entities.Schema = restService.lookUpSubjectVersion(schema.toString(), subject, true)
-              val concatMap: Map[Schema, Int] = m ++ Map(schema -> response.getVersion.toInt)
-              versionCache.put(versionKey)(concatMap, versionCacheDurationTtl)
-              response.getVersion.toInt
-            case None =>
-              val response: io.confluent.kafka.schemaregistry.client.rest.entities.Schema = restService.lookUpSubjectVersion(schema.toString(), subject, true)
-              versionCache.put(versionKey)(Map(schema -> response.getVersion.toInt), versionCacheDurationTtl)
-              response.getVersion.toInt
-          }
-      }
-    }
-  }
-
   override def getAllVersions(s: String): java.util.List[Integer] = {
     restService.getAllVersions(s)
   }
@@ -499,52 +434,6 @@ class RedisSchemaRegistryClient(restService: RestService,
 
   override def getAllSubjects: java.util.Collection[String] = {
     restService.getAllSubjects()
-  }
-
-  private def getIdInternal(s: String, schema: Schema): Int = synchronized {
-    if (DO_NOT_CACHE_LIST.exists(s.startsWith)) {
-      restService.lookUpSubjectVersion(schema.toString, s, false).getId.toInt
-    } else {
-      def call(): Map[Schema, Int] = {
-        val response = restService.lookUpSubjectVersion(schema.toString, s, false)
-        Map(schema -> response.getId.toInt)
-      }
-
-      val idKey = buildIdKey(s)
-
-      def populateVersionCache(m: Map[Schema, Int]): Try[Any] = {
-        val idM: Map[Int, Schema] = m.map(kv => kv._2 -> kv._1)
-
-        idCache.get(idKey) match {
-          case Failure(_) =>
-            idCache.put(idKey)(idM, idCacheDurationTtl)
-          case Success(im) =>
-            val concatMap: Map[Int, Schema] = idM ++ im.getOrElse(Map.empty[Int, Schema])
-            idCache.put(idKey)(concatMap, idCacheDurationTtl)
-        }
-      }
-
-      val schemaKey = buildSchemaKey(s)
-
-      schemaCache.get(schemaKey) match {
-        case Failure(_) =>
-          schemaCache.put(schemaKey)(call(), schemaCacheDurationTtl)
-          call()(schema)
-        case Success(map) => map match {
-          case Some(m) if m.keys.exists(_ == schema) =>
-            populateVersionCache(m)
-            m(schema)
-          case Some(m) =>
-            val concatMaps: Map[Schema, Int] = m ++ call()
-            populateVersionCache(concatMaps)
-            schemaCache.put(schemaKey)(concatMaps, schemaCacheDurationTtl)
-            call()(schema)
-          case None =>
-            schemaCache.put(schemaKey)(call(), schemaCacheDurationTtl)
-            call()(schema)
-        }
-      }
-    }
   }
 
   override def deleteSubject(s: String): java.util.List[Integer] = synchronized {
@@ -637,20 +526,7 @@ class RedisSchemaRegistryClient(restService: RestService,
   }
 
   override def reset(): Unit =
-    println("The reset operation unsupported for a distributed cache.")
-
-//  override def getByID(i: Int): Schema = {
-//    getById(i)
-//  }
-
-//  override def getBySubjectAndID(s: String, i: Int): Schema = {
-//    getBySubjectAndId(s, i)
-//  }
-
-//  override def testCompatibility(s: String, schema: Schema): Boolean = {
-//    val incompatibleErrors = restService.testCompatibility(schema.toString(), s, "latest")
-//    incompatibleErrors.isEmpty
-//  }
+    throw new UnsupportedOperationException("The reset operation unsupported for a distributed cache.")
 
   override def parseSchema(schemaType: String, schemaString: String,
                            references: util.List[SchemaReference]): Optional[ParsedSchema] = {
@@ -662,20 +538,120 @@ class RedisSchemaRegistryClient(restService: RestService,
     register(subject, schema, 0, -1)
   }
 
-  override def register(subject: String, schema: ParsedSchema, version: Int, id: Int): Int = {
-    registerInternal(subject, toAvroSchema(schema), version, id)
+  override def register(subject: String, parsedSchema: ParsedSchema, version: Int, id: Int): Int = synchronized {
+    val schema = toAvroSchema(parsedSchema)
+
+    def register(): Int =
+      if (version >= 0) {
+        restService.registerSchema(schema.toString(), subject, version, id)
+      } else {
+        restService.registerSchema(schema.toString(), subject)
+      }
+
+    if (DO_NOT_CACHE_LIST.exists(subject.startsWith)) {
+      register()
+    } else {
+      val idKey = buildIdKey(subject)
+
+      def populateIdCache(sc: Schema, id: Int): Unit = {
+        idCache.caching(idKey)(idCacheDurationTtl) {
+          Map(id -> sc)
+        } match {
+          case Failure(_) => idCache.put(idKey)(Map(id -> sc), idCacheDurationTtl)
+          case Success(m) if m.exists(_ == (id -> sc)) => ()
+          case Success(m) =>
+            val concatMap: Map[Int, Schema] = Map(id -> sc) ++ m
+            idCache.put(idKey)(concatMap, idCacheDurationTtl)
+        }
+      }
+
+      val schemaKey = buildSchemaKey(subject)
+
+      schemaCache.get(schemaKey) match {
+        case Failure(_) =>
+          val retrievedId = register()
+          populateIdCache(schema, retrievedId)
+          retrievedId
+        case Success(map) => map match {
+          case Some(m) if m.exists(_._1 == schema) =>
+            val cachedId = m(schema)
+
+            if (id >= 0 && id != cachedId) {
+              throw new IllegalStateException("Schema already registered with id " + cachedId + " instead of input id " + id)
+            } else {
+              cachedId
+            }
+          case Some(m) =>
+            val retrievedId = register()
+            val concatMap: Map[Schema, Int] = Map(schema -> retrievedId) ++ m
+            schemaCache.put(schemaKey)(concatMap, schemaCacheDurationTtl)
+            populateIdCache(schema, retrievedId)
+            retrievedId
+          case None =>
+            val retrievedId = register()
+            populateIdCache(schema, retrievedId)
+            retrievedId
+        }
+      }
+    }
   }
 
-  override def getSchemaById(id: Int): ParsedSchema = {
-    toParsedSchema(getSchemaByIdInternal(id))
+  override def getSchemaById(id: Int): ParsedSchema = synchronized {
+    val restSchema = restService.getId(id)
+    val parser = new Schema.Parser()
+    parser.setValidateDefaults(false)
+    toParsedSchema(parser.parse(restSchema.getSchemaString))
   }
 
   override def getSchemaBySubjectAndId(subject: String, id: Int): ParsedSchema = {
-    toParsedSchema(getSchemaBySubjectAndIdInternal(subject, id))
+    val result =
+      if (DO_NOT_CACHE_LIST.exists(subject.startsWith)) {
+        restGetSchemaById(subject, id)
+      } else {
+        val idKey = buildIdKey(subject)
+
+        idCache.get(idKey) match {
+          case Failure(_) => restGetId(subject, id)(id)
+          case Success(map) =>
+            map match {
+              case Some(m) if m.keys.exists(_ == id) => m(id)
+              case _ => getBySubjectAndIdSynchronized(subject, id)
+            }
+        }
+      }
+    toParsedSchema(result)
   }
 
-  override def getVersion(subject: String, schema: ParsedSchema): Int = {
-    getVersionInternal(subject, toAvroSchema(schema))
+  override def getVersion(subject: String, parsedSchema: ParsedSchema): Int = synchronized {
+    val schema = toAvroSchema(parsedSchema)
+
+    if (DO_NOT_CACHE_LIST.exists(subject.startsWith)) {
+      val response: io.confluent.kafka.schemaregistry.client.rest.entities.Schema = restService.lookUpSubjectVersion(schema.toString(), subject, true)
+      response.getVersion.toInt
+    } else {
+      val versionKey = buildVersionKey(subject)
+
+      versionCache.get(versionKey) match {
+        case Failure(_) =>
+          val response: io.confluent.kafka.schemaregistry.client.rest.entities.Schema = restService.lookUpSubjectVersion(schema.toString(), subject, true)
+          versionCache.put(versionKey)(Map(schema -> response.getVersion.toInt), versionCacheDurationTtl)
+          response.getVersion.toInt
+        case Success(map) =>
+          map match {
+            case Some(m) if m.keySet.contains(schema) =>
+              m(schema)
+            case Some(m) =>
+              val response: io.confluent.kafka.schemaregistry.client.rest.entities.Schema = restService.lookUpSubjectVersion(schema.toString(), subject, true)
+              val concatMap: Map[Schema, Int] = m ++ Map(schema -> response.getVersion.toInt)
+              versionCache.put(versionKey)(concatMap, versionCacheDurationTtl)
+              response.getVersion.toInt
+            case None =>
+              val response: io.confluent.kafka.schemaregistry.client.rest.entities.Schema = restService.lookUpSubjectVersion(schema.toString(), subject, true)
+              versionCache.put(versionKey)(Map(schema -> response.getVersion.toInt), versionCacheDurationTtl)
+              response.getVersion.toInt
+          }
+      }
+    }
   }
 
   override def testCompatibility(subject: String, schema: ParsedSchema): Boolean = {
@@ -683,8 +659,51 @@ class RedisSchemaRegistryClient(restService: RestService,
     compatibilityErrors.isEmpty
   }
 
-  override def getId(subject: String, schema: ParsedSchema): Int = {
-    getIdInternal(subject, toAvroSchema(schema))
+  override def getId(s: String, parsedSchema: ParsedSchema): Int = synchronized {
+    val schema = toAvroSchema(parsedSchema)
+    if (DO_NOT_CACHE_LIST.exists(s.startsWith)) {
+      restService.lookUpSubjectVersion(schema.toString, s, false).getId.toInt
+    } else {
+      def call(): Map[Schema, Int] = {
+        val response = restService.lookUpSubjectVersion(schema.toString, s, false)
+        Map(schema -> response.getId.toInt)
+      }
+
+      val idKey = buildIdKey(s)
+
+      def populateVersionCache(m: Map[Schema, Int]): Try[Any] = {
+        val idM: Map[Int, Schema] = m.map(kv => kv._2 -> kv._1)
+
+        idCache.get(idKey) match {
+          case Failure(_) =>
+            idCache.put(idKey)(idM, idCacheDurationTtl)
+          case Success(im) =>
+            val concatMap: Map[Int, Schema] = idM ++ im.getOrElse(Map.empty[Int, Schema])
+            idCache.put(idKey)(concatMap, idCacheDurationTtl)
+        }
+      }
+
+      val schemaKey = buildSchemaKey(s)
+
+      schemaCache.get(schemaKey) match {
+        case Failure(_) =>
+          schemaCache.put(schemaKey)(call(), schemaCacheDurationTtl)
+          call()(schema)
+        case Success(map) => map match {
+          case Some(m) if m.keys.exists(_ == schema) =>
+            populateVersionCache(m)
+            m(schema)
+          case Some(m) =>
+            val concatMaps: Map[Schema, Int] = m ++ call()
+            populateVersionCache(concatMaps)
+            schemaCache.put(schemaKey)(concatMaps, schemaCacheDurationTtl)
+            call()(schema)
+          case None =>
+            schemaCache.put(schemaKey)(call(), schemaCacheDurationTtl)
+            call()(schema)
+        }
+      }
+    }
   }
 
   private def toParsedSchema(avroSchema: Schema): ParsedSchema = new AvroSchema(avroSchema)
@@ -692,7 +711,8 @@ class RedisSchemaRegistryClient(restService: RestService,
   private def toAvroSchema(parsedSchema: ParsedSchema): Schema = {
     parsedSchema match {
       case s: AvroSchema => s.rawSchema
-      case _ => throw new RuntimeException(s"Non-avro schema is not allowed: ")
+      case p: ParsedSchema => throw new RuntimeException(s"Non-avro schema is not allowed: [ $p ]")
+      case _ => throw new RuntimeException(s"Encountered unknown schema: [ $parsedSchema ]")
     }
   }
 }

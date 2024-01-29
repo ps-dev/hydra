@@ -40,7 +40,6 @@ lazy val defaultSettings = Seq(
     "-deprecation",
     "-unchecked",
     "-Ypartial-unification"
-//    "-Ylog-classpath"
   ),
   javacOptions in Compile ++= Seq(
     "-encoding",

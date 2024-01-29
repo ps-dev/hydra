@@ -72,12 +72,8 @@ object Dependencies {
 
     val retry = "com.softwaremill.retry" %% "retry" % "0.3.3"
 
-    val embeddedKafka = Seq(
+    val embeddedKafka =
       "io.github.embeddedkafka" %% "embedded-kafka" % "2.8.1" % "test" excludeAll(ExclusionRule("org.apache.kafka"))
-//        excludeAll(ExclusionRule("org.apache.kafka"), ExclusionRule("org.apache.zookeeper"))
-//      "org.apache.kafka" %% "kafka" % kafkaVersion % "test",
-//      "org.apache.zookeeper" % "zookeeper" % "3.5.9" % "test"
-    )
 
     lazy val kamon = Seq(
       "io.kamon" %% "kamon-core" % kamonVersion,
@@ -87,8 +83,9 @@ object Dependencies {
     val kafkaClients: Seq[ModuleID] =  Seq("org.apache.kafka" % "kafka-clients" % kafkaVersion)
 
     val kafka: Seq[ModuleID] = Seq(
-      "org.apache.kafka" %% "kafka" % kafkaVersion
-    ) ++ kafkaClients ++ embeddedKafka
+      "org.apache.kafka" %% "kafka" % kafkaVersion,
+      embeddedKafka
+    ) ++ kafkaClients
 
     val kafkaAvroSerializer: Seq[ModuleID] =
       Seq("io.confluent" % "kafka-avro-serializer" % confluentVersion).map(
@@ -186,21 +183,12 @@ object Dependencies {
       val scalaMock = "org.scalamock" %% "scalamock" % scalaMockVersion % module
       val junit = "junit" % "junit" % "4.13.1" % module
 
-      val embeddedKafka =
+      val embeddedKafkaSchemaRegistry =
         "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" %  confluentVersion  % module
-      //excludeAll(
-//                ExclusionRule("io.github.embeddedkafka"),
-//                ExclusionRule("io.confluent", "kafka-schema-registry-client")
-        //    )
-//      "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" %  confluentVersion  % module
-//      excludeAll(
-////          ExclusionRule("io.github.embeddedkafka"),
-//          ExclusionRule("org.apache.zookeeper"), ExclusionRule("org.apache.kafka")
-//        )
 
       val scalatestEmbeddedRedis = "com.github.sebruck" %% "scalatest-embedded-redis" % scalaTestEmbeddedRedisVersion % module
 
-      akkaTest ++ Seq(scalaTest, scalaMock, junit, scalatestEmbeddedRedis, embeddedKafka)
+      akkaTest ++ Seq(scalaTest, scalaMock, junit, scalatestEmbeddedRedis, embeddedKafkaSchemaRegistry)
     }
 
   }
@@ -237,7 +225,7 @@ object Dependencies {
       retry
     ) ++ guavacache ++ kafkaAvroSerializer ++ kamon ++ redisCache
 
-  val ingestDeps: Seq[ModuleID] = coreDeps ++ akkaHttpHal ++ embeddedKafka ++ Seq(sprayJson)
+  val ingestDeps: Seq[ModuleID] = coreDeps ++ akkaHttpHal ++ Seq(embeddedKafka, sprayJson)
 
   val kafkaDeps: Seq[ModuleID] = coreDeps ++ Seq(
     akkaKafkaStream,
