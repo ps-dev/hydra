@@ -6,15 +6,16 @@ variables:
   DOCKER_REGISTRY_IMAGE: harbor.vnerd.com/library/${IMAGE_NAME}
 
 before_script:
-  - apk update update -yqq
-  - apk-get install -yqq apt-transport-https apt-utils
+  - apt-get update -yqq
+  - apt-get install -yqq apt-transport-https apt-utils sbt docker.io
   - echo "deb https://repo.scala-sbt.org/scalasbt/debian /" | tee -a /etc/apt/sources.list.d/sbt.list
   - mkdir -p /root/.gnupg
   - gpg --recv-keys --no-default-keyring --keyring gnupg-ring:/etc/apt/trusted.gpg.d/scalasbt-release.gpg --keyserver hkp://keyserver.ubuntu.com:80 2EE0EA64E40A89B84B2DF73499E82A75642AC823
   - chmod 644 /etc/apt/trusted.gpg.d/scalasbt-release.gpg
-  - apk-get update -yqq
-  - apk-get install -yqq sbt docker.io
-
+  - apt-get update -yqq
+  - apt-get install -yqq sbt docker.io
+  - echo "${DOCKER_REGISTRY_PASSWORD}" | docker login -u "${DOCKER_REGISTRY_USERNAME}" --password-stdin harbor.vnerd.com
+  - docker login -u ${DOCKER_REGISTRY_USERNAME} -p ${DOCKER_REGISTRY_PASSWORD} harbor.vnerd.com
 
 stages:
   - build
@@ -23,17 +24,9 @@ stages:
   - finalize
 
 build:
-  #stage: build
- #script:
-   # - sbt clean compile test
-
   stage: build
-  image: harbor.vnerd.com/proxy/library/docker:19.03.0
-  services:
-    - harbor.vnerd.com/proxy/library/docker:19.03.5-dind
   script:
-    - echo "${DOCKER_REGISTRY_PASSWORD}" | docker login -u "${DOCKER_REGISTRY_USERNAME}" --password-stdin harbor.vnerd.com
-    - docker login -u ${DOCKER_REGISTRY_USERNAME} -p ${DOCKER_REGISTRY_PASSWORD} harbor.vnerd.com
+    - sbt clean compile test
 
 package:
   stage: package
@@ -61,15 +54,15 @@ publish:
 
 finalize:
   stage: finalize
-  image: harbor.vnerd.com/proxy/library/docker:19.03.0
-  services:
-    - harbor.vnerd.com/proxy/library/docker:19.03.5-dind
   script:
-    - echo "${DOCKER_REGISTRY_PASSWORD}" | docker login -u "${DOCKER_REGISTRY_USERNAME}" --password-stdin harbor.vnerd.com
-    - docker login -u ${DOCKER_REGISTRY_USERNAME} -p ${DOCKER_REGISTRY_PASSWORD} harbor.vnerd.com
     - docker push ${DOCKER_REGISTRY_IMAGE}:${CI_PIPELINE_IID}
     - docker tag ${IMAGE_NAME} ${DOCKER_REGISTRY_IMAGE}:latest
     - docker push ${DOCKER_REGISTRY_IMAGE}:latest
     - CURYEAR=$(date +%Y)
     - CURMONTH=$(date +%-m)
     - echo -n "${CURYEAR}.${CURMONTH}.${CI_PIPELINE_IID}" > VERSION
+
+
+
+
+
