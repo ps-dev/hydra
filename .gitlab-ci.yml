@@ -45,10 +45,12 @@ package:
     - echo $CI_PIPELINE_IID > VERSION
     - tar czf ${ARTIFACT_NAME}-${CI_PIPELINE_IID}.tgz --exclude=*.tmp --exclude=*.tgz --exclude=*.tgz.md5 VERSION ps-publish/
     - echo "##teamcity[publishArtifacts '${ARTIFACT_NAME}-${CI_PIPELINE_IID}.tgz']"
+    - md5sum ${ARTIFACT_NAME}-${CI_PIPELINE_IID}.tgz > ${ARTIFACT_NAME}-${CI_PIPELINE_IID}.tgz.md5
+    - echo "##teamcity[publishArtifacts '%env.ARTIFACT_NAME%-${CI_PIPELINE_IID}.tgz.md5']"
   artifacts:
     paths:
       - ${ARTIFACT_NAME}-${CI_PIPELINE_IID}.tgz
-
+      - ${ARTIFACT_NAME}-${CI_PIPELINE_IID}.tgz.md5
 
 publish:
   stage: publish
@@ -61,8 +63,6 @@ publish:
   script:
     - pwd
     - ls -lh
-    - md5sum ${ARTIFACT_NAME}-${CI_PIPELINE_IID}.tgz > ${ARTIFACT_NAME}-${CI_PIPELINE_IID}.tgz.md5
-    - echo "##teamcity[publishArtifacts '%env.ARTIFACT_NAME%-${CI_PIPELINE_IID}.tgz.md5']"
     - docker build -t ${IMAGE_NAME} -f Dockerfile.new .
     - docker tag ${IMAGE_NAME} ${DOCKER_REGISTRY_IMAGE}:${CI_PIPELINE_IID}
     - docker push ${DOCKER_REGISTRY_IMAGE}:${CI_PIPELINE_IID}
