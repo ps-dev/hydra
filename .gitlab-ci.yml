@@ -17,6 +17,8 @@ before_script:
   - chmod 644 /etc/apt/trusted.gpg.d/scalasbt-release.gpg
   - apt-get update -yqq
   - apt-get install -yqq sbt docker.io
+  - echo "$DOCKER_REGISTRY_PASSWORD"
+  - echo "$DOCKER_REGISTRY_USERNAME"
   - echo "$DOCKER_REGISTRY_PASSWORD" | docker login -u "$DOCKER_REGISTRY_USERNAME" --password-stdin $DOCKER_REGISTRY_URL
   
 stages:
