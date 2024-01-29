@@ -19,7 +19,8 @@ before_script:
   - apt-get install -yqq sbt docker.io
   - echo "$DOCKER_REGISTRY_PASSWORD"
   - echo "$DOCKER_REGISTRY_USERNAME"
-  - echo ${DOCKER_REGISTRY_PASSWORD} | docker login ${DOCKER_REGISTRY_URL} -u ${DOCKER_REGISTRY_USER} --password-stdin
+  #- echo -n "$DOCKER_REGISTRY_PASSWORD" | docker login -u "$DOCKER_REGISTRY_USERNAME" --password-stdin "$DOCKER_REGISTRY_URL"
+  #- echo ${DOCKER_REGISTRY_PASSWORD} | docker login ${DOCKER_REGISTRY_URL} -u ${DOCKER_REGISTRY_USER} --password-stdin
   
 stages:
   - build
@@ -48,8 +49,12 @@ package:
     - tar czf ${ARTIFACT_NAME}-${CI_PIPELINE_IID}.tgz --exclude=*.tmp --exclude=*.tgz --exclude=*.tgz.md5 VERSION ps-publish/
     - echo "##teamcity[publishArtifacts '%env.ARTIFACT_NAME%-${CI_PIPELINE_IID}.tgz']"
 
+
 publish:
   stage: publish
+  image: harbor.vnerd.com/proxy/library/docker:cli
+  before_script:
+    - echo -n "$DOCKER_REGISTRY_PASSWORD" | docker login -u "$DOCKER_REGISTRY_USERNAME" --password-stdin "$DOCKER_REGISTRY_URL"
   script:
     - md5sum ${ARTIFACT_NAME}-${CI_PIPELINE_IID}.tgz > ${ARTIFACT_NAME}-${CI_PIPELINE_IID}.tgz.md5
     - echo "##teamcity[publishArtifacts '%env.ARTIFACT_NAME%-${CI_PIPELINE_IID}.tgz.md5']"
