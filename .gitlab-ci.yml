@@ -45,6 +45,10 @@ package:
     - echo $CI_PIPELINE_IID > VERSION
     - tar czf ${ARTIFACT_NAME}-${CI_PIPELINE_IID}.tgz --exclude=*.tmp --exclude=*.tgz --exclude=*.tgz.md5 VERSION ps-publish/
     - echo "##teamcity[publishArtifacts '${ARTIFACT_NAME}-${CI_PIPELINE_IID}.tgz']"
+  artifacts:
+    paths:
+      - ${ARTIFACT_NAME}-${CI_PIPELINE_IID}.tgz
+
 
 publish:
   stage: publish
@@ -69,6 +73,8 @@ publish:
     - CURYEAR=$(date +%Y)
     - CURMONTH=$(date +%-m)
     - echo -n "${CURYEAR}.${CURMONTH}.${CI_PIPELINE_IID}" > VERSION
+  dependencies:
+    - package
 
 
 
