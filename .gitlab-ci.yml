@@ -4,6 +4,9 @@ variables:
   ARTIFACT_NAME: hydra-publish
   IMAGE_NAME: hydra
   DOCKER_REGISTRY_IMAGE: harbor.vnerd.com/library/${IMAGE_NAME}
+  DOCKER_REGISTRY_URL: "harbor.vnerd.com"
+  DOCKER_REGISTRY_USERNAME: $DOCKER_REGISTRY_USERNAME
+  DOCKER_REGISTRY_PASSWORD: $DOCKER_REGISTRY_PASSWORD
 
 before_script:
   - apt-get update -yqq
@@ -14,9 +17,8 @@ before_script:
   - chmod 644 /etc/apt/trusted.gpg.d/scalasbt-release.gpg
   - apt-get update -yqq
   - apt-get install -yqq sbt docker.io
-  - echo "${DOCKER_REGISTRY_PASSWORD}" | docker login -u "${DOCKER_REGISTRY_USERNAME}" --password-stdin harbor.vnerd.com || exit 1
-  - docker login -u ${DOCKER_REGISTRY_USERNAME} -p ${DOCKER_REGISTRY_PASSWORD} harbor.vnerd.com
-
+  - echo "$DOCKER_REGISTRY_PASSWORD" | docker login -u "$DOCKER_REGISTRY_USERNAME" --password-stdin $DOCKER_REGISTRY_URL
+  
 stages:
   - build
   - package
