@@ -2,7 +2,6 @@ package hydra.kafka.model
 
 import java.time.Instant
 import java.util.UUID
-
 import cats.data.Validated.{Invalid, Valid}
 import cats.data.{NonEmptyList, Validated}
 import cats.syntax.all._
@@ -31,6 +30,7 @@ case class TopicMetadata(
     derived: Boolean,
     deprecated: Option[Boolean],
     dataClassification: String,
+    subDataClassification: Option[String],
     contact: String,
     additionalDocumentation: Option[String],
     notes: Option[String],
@@ -145,6 +145,7 @@ final case class TopicMetadataV2ValueOptionalTagList(
                                          deprecated: Boolean,
                                          deprecatedDate: Option[Instant],
                                          dataClassification: DataClassification,
+                                         subDataClassification: Option[SubDataClassification],
                                          contact: NonEmptyList[ContactMethod],
                                          createdDate: Instant,
                                          parentSubjects: List[String],
@@ -160,6 +161,7 @@ final case class TopicMetadataV2ValueOptionalTagList(
       deprecated,
       deprecatedDate,
       dataClassification,
+      subDataClassification,
       contact,
       createdDate,
       parentSubjects,
@@ -178,6 +180,7 @@ final case class TopicMetadataV2Value(
     deprecated: Boolean,
     deprecatedDate: Option[Instant],
     dataClassification: DataClassification,
+    subDataClassification: Option[SubDataClassification],
     contact: NonEmptyList[ContactMethod],
     createdDate: Instant,
     parentSubjects: List[String],
@@ -193,6 +196,7 @@ final case class TopicMetadataV2Value(
       deprecated,
       deprecatedDate,
       dataClassification,
+      subDataClassification,
       contact,
       createdDate,
       parentSubjects,
@@ -226,26 +230,61 @@ object TopicMetadataV2ValueOptionalTagList {
   implicit val dataClassificationCodec: Codec[DataClassification] =
     Codec.deriveEnum[DataClassification](
       symbols = List(
-        "Public",
-        "InternalUseOnly",
-        "ConfidentialPII",
-        "RestrictedFinancial",
-        "RestrictedEmployeeData"
+        DataClassification.Public.entryName,
+        DataClassification.InternalUse.entryName,
+        DataClassification.Confidential.entryName,
+        DataClassification.Restricted.entryName,
+        ObsoleteDataClassification.InternalUseOnly.entryName,
+        ObsoleteDataClassification.ConfidentialPII.entryName,
+        ObsoleteDataClassification.RestrictedEmployeeData.entryName,
+        ObsoleteDataClassification.RestrictedFinancial.entryName
       ),
       encode = {
-        case Public                 => "Public"
-        case InternalUseOnly        => "InternalUseOnly"
-        case ConfidentialPII        => "ConfidentialPII"
-        case RestrictedFinancial    => "RestrictedFinancial"
-        case RestrictedEmployeeData => "RestrictedEmployeeData"
+        case DataClassification.Public                         => DataClassification.Public.entryName
+        case DataClassification.InternalUse                    => DataClassification.InternalUse.entryName
+        case DataClassification.Confidential                   => DataClassification.Confidential.entryName
+        case DataClassification.Restricted                     => DataClassification.Restricted.entryName
+        case ObsoleteDataClassification.InternalUseOnly        => ObsoleteDataClassification.InternalUseOnly.entryName
+        case ObsoleteDataClassification.ConfidentialPII        => ObsoleteDataClassification.ConfidentialPII.entryName
+        case ObsoleteDataClassification.RestrictedEmployeeData => ObsoleteDataClassification.RestrictedEmployeeData.entryName
+        case ObsoleteDataClassification.RestrictedFinancial    => ObsoleteDataClassification.RestrictedFinancial.entryName
       },
       decode = {
-        case "Public"                 => Right(Public)
-        case "InternalUseOnly"        => Right(InternalUseOnly)
-        case "ConfidentialPII"        => Right(ConfidentialPII)
-        case "RestrictedFinancial"    => Right(RestrictedFinancial)
-        case "RestrictedEmployeeData" => Right(RestrictedEmployeeData)
-        case other                    => Left(AvroError(s"$other is not a DataClassification"))
+        case "Public"                 => Right(DataClassification.Public)
+        case "InternalUse"            => Right(DataClassification.InternalUse)
+        case "Confidential"           => Right(DataClassification.Confidential)
+        case "Restricted"             => Right(DataClassification.Restricted)
+        case "InternalUseOnly"        => Right(ObsoleteDataClassification.InternalUseOnly)
+        case "ConfidentialPII"        => Right(ObsoleteDataClassification.ConfidentialPII)
+        case "RestrictedEmployeeData" => Right(ObsoleteDataClassification.RestrictedEmployeeData)
+        case "RestrictedFinancial"    => Right(ObsoleteDataClassification.RestrictedFinancial)
+        case other                    => Left(AvroError(s"$other is not a DataClassification. Valid value is one of: ${DataClassification.values}"))
+      }
+    )
+
+  implicit val subDataClassificationCodec: Codec[SubDataClassification] =
+    Codec.deriveEnum[SubDataClassification](
+      symbols = List(
+        SubDataClassification.Public.entryName,
+        SubDataClassification.InternalUseOnly.entryName,
+        SubDataClassification.ConfidentialPII.entryName,
+        SubDataClassification.RestrictedEmployeeData.entryName,
+        SubDataClassification.RestrictedFinancial.entryName
+      ),
+      encode = {
+        case SubDataClassification.Public                 => SubDataClassification.Public.entryName
+        case SubDataClassification.InternalUseOnly        => SubDataClassification.InternalUseOnly.entryName
+        case SubDataClassification.ConfidentialPII        => SubDataClassification.ConfidentialPII.entryName
+        case SubDataClassification.RestrictedEmployeeData => SubDataClassification.RestrictedEmployeeData.entryName
+        case SubDataClassification.RestrictedFinancial    => SubDataClassification.RestrictedFinancial.entryName
+      },
+      decode = {
+        case "Public"                 => Right(SubDataClassification.Public)
+        case "InternalUseOnly"        => Right(SubDataClassification.InternalUseOnly)
+        case "ConfidentialPII"        => Right(SubDataClassification.ConfidentialPII)
+        case "RestrictedEmployeeData" => Right(SubDataClassification.RestrictedEmployeeData)
+        case "RestrictedFinancial"    => Right(SubDataClassification.RestrictedFinancial)
+        case other                    => Left(AvroError(s"$other is not a SubDataClassification. Valid value is one of: ${SubDataClassification.values}"))
       }
     )
 
@@ -288,6 +327,7 @@ object TopicMetadataV2ValueOptionalTagList {
         field("deprecated", _.deprecated),
         field("deprecatedDate", _.deprecatedDate, default = Some(None)),
         field("dataClassification", _.dataClassification),
+        field("subDataClassification", _.subDataClassification, default = Some(None)),
         field("contact", _.contact),
         field("createdDate", _.createdDate),
         field("parentSubjects", _.parentSubjects),

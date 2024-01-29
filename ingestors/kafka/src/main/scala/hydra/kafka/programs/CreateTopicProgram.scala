@@ -4,7 +4,7 @@ import cats.effect.{Bracket, ExitCase, Resource, Sync}
 import hydra.avro.registry.SchemaRegistry
 import hydra.avro.registry.SchemaRegistry.SchemaVersion
 import hydra.kafka.algebras.{KafkaAdminAlgebra, KafkaClientAlgebra, MetadataAlgebra}
-import hydra.kafka.model.{AdditionalValidation, StreamTypeV2, TopicMetadataV2, TopicMetadataV2Key, TopicMetadataV2Request}
+import hydra.kafka.model.{AdditionalValidation, SkipValidation, StreamTypeV2, TopicMetadataV2, TopicMetadataV2Key, TopicMetadataV2Request}
 import hydra.kafka.programs.CreateTopicProgram._
 import hydra.kafka.util.KafkaUtils.TopicDetails
 import org.typelevel.log4cats.Logger
@@ -24,7 +24,8 @@ final class CreateTopicProgram[F[_]: Bracket[*[_], Throwable]: Sleep: Logger] pr
                                                                                retryPolicy: RetryPolicy[F],
                                                                                v2MetadataTopicName: Subject,
                                                                                metadataAlgebra: MetadataAlgebra[F],
-                                                                               schemaValidator: KeyAndValueSchemaV2Validator[F]
+                                                                               schemaValidator: KeyAndValueSchemaV2Validator[F],
+                                                                               metadataValidator: TopicMetadataV2Validator[F]
                                                                              ) (implicit eff: Sync[F]){
 
   private def onFailure(resourceTried: String): (Throwable, RetryDetails) => F[Unit] = {
@@ -106,6 +107,7 @@ final class CreateTopicProgram[F[_]: Bracket[*[_], Throwable]: Sleep: Logger] pr
                                createTopicRequest: TopicMetadataV2Request,
                              ): F[Unit] = {
     for {
+      _ <- metadataValidator.validate(createTopicRequest)
       metadata <- metadataAlgebra.getMetadataFor(topicName)
       createdDate = metadata.map(_.value.createdDate).getOrElse(createTopicRequest.createdDate)
       deprecatedDate = metadata.map(_.value.deprecatedDate).getOrElse(createTopicRequest.deprecatedDate) match {
@@ -135,10 +137,11 @@ final class CreateTopicProgram[F[_]: Bracket[*[_], Throwable]: Sleep: Logger] pr
     } yield ()
 
   //todo: workaround for https://pluralsight.atlassian.net/browse/ADAPT-929, should be removed in the future
-  def createTopicFromMetadataOnly(topicName: Subject, createTopicRequest: TopicMetadataV2Request, withRequiredFields: Boolean = false): F[Unit] =
+  def createTopicFromMetadataOnly(topicName: Subject, createTopicRequest: TopicMetadataV2Request, withRequiredFields: Boolean = false,
+                                  maybeSkipValidations: Option[List[SkipValidation]] = None): F[Unit] =
     for {
       _ <- checkThatTopicExists(topicName.value)
-      _ <- schemaValidator.validate(createTopicRequest, topicName, withRequiredFields)
+      _ <- schemaValidator.validate(createTopicRequest, topicName, withRequiredFields, maybeSkipValidations)
       _ <- publishMetadata(topicName, createTopicRequest)
     } yield ()
 
@@ -188,7 +191,8 @@ object CreateTopicProgram {
       retryPolicy,
       v2MetadataTopicName,
       metadataAlgebra,
-      KeyAndValueSchemaV2Validator.make(schemaRegistry, metadataAlgebra)
+      KeyAndValueSchemaV2Validator.make(schemaRegistry, metadataAlgebra),
+      new TopicMetadataV2Validator()
     )
   }
 

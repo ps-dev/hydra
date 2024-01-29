@@ -283,7 +283,7 @@ public class JsonConverter<T extends GenericRecord> {
             case STRING:
                 return value.toString();
             case ENUM:
-                boolean valid = schema.getEnumSymbols().contains(value);
+                boolean valid = schema.getEnumSymbols().contains(value.toString());
                 if (!valid)
                     throw new IllegalArgumentException(value + " is not a valid symbol. Possible values are: " +
                             schema.getEnumSymbols() + ".");
