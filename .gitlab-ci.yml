@@ -6,14 +6,14 @@ variables:
   DOCKER_REGISTRY_IMAGE: harbor.vnerd.com/library/${IMAGE_NAME}
 
 before_script:
-  - apt-get update -yqq
-  - apt-get install -yqq apt-transport-https apt-utils
+  - apk update update -yqq
+  - apk-get install -yqq apt-transport-https apt-utils
   - echo "deb https://repo.scala-sbt.org/scalasbt/debian /" | tee -a /etc/apt/sources.list.d/sbt.list
   - mkdir -p /root/.gnupg
   - gpg --recv-keys --no-default-keyring --keyring gnupg-ring:/etc/apt/trusted.gpg.d/scalasbt-release.gpg --keyserver hkp://keyserver.ubuntu.com:80 2EE0EA64E40A89B84B2DF73499E82A75642AC823
   - chmod 644 /etc/apt/trusted.gpg.d/scalasbt-release.gpg
-  - apt-get update -yqq
-  - apt-get install -yqq sbt docker.io
+  - apk-get update -yqq
+  - apk-get install -yqq sbt docker.io
 
 
 stages:
