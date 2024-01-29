@@ -16,15 +16,13 @@ lazy val defaultSettings = Seq(
   excludeDependencies += "org.slf4j" % "slf4j-log4j12",
   excludeDependencies += "log4j" % "log4j",
   dependencyOverrides ++= Seq(
-//    "org.apache.commons" % "commons-lang3" % "3.13.0",
     "org.apache.commons" % "commons-compress" % "1.24.0",
-//    "org.apache.commons" % "lang3" % "3.1.0",
-    "io.confluent" %% "kafka-schema-registry" % "6.2.1" % "test", // excludeAll(ExclusionRule("org.apache.kafka")),
+    "io.netty" % "netty-codec" % "4.1.77.Final",
+    "org.apache.zookeeper" % "zookeeper" % "3.7.2",
+    "org.xerial.snappy" % "snappy-java" % "1.1.10.4",
+    "com.fasterxml.jackson.core" % "jackson-databind" % "2.13.3",
+    "io.confluent" %% "kafka-schema-registry" % "6.2.1" % "test",
     "io.confluent" %% "kafka-avro-serializer" % "6.2.1" % "test",
-//    "org.apache.kafka" %% "kafka" % "2.8.2" % "test",
-//    "org.apache.zookeeper" % "zookeeper" % "3.5.9" % "test"
-//    "org.apache.zookeeper" % "zookeeper" % "3.5.9",
-//    "org.apache.zookeeper" % "zookeeper" % "3.5.9" % "test"
   ),
   addCompilerPlugin(
     "org.typelevel" %% "kind-projector" % "0.11.3" cross CrossVersion.full
