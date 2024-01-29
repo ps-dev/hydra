@@ -5,11 +5,10 @@ variables:
   IMAGE_NAME: hydra
   DOCKER_REGISTRY_IMAGE: harbor.vnerd.com/library/${IMAGE_NAME}
   DOCKER_REGISTRY_URL: "harbor.vnerd.com/library"
-  DOCKER_HOST: tcp://localhost:2375
-  DOCKER_TLS_CERTDIR: ''
-  DOCKER_DRIVER: overlay2
+  DOCKER_HOST: tcp://localhost:2376
+  DOCKER_TLS_CERTDIR: "/certs"
+  DOCKER_CERT_PATH: "$DOCKER_TLS_CERTDIR/client"
   DOCKER_TLS_VERIFY: 1
-
 
 before_script:
   - apt-get update -yqq
@@ -34,7 +33,10 @@ stages:
 
 prestep:
   stage: prestep
-  image: harbor.vnerd.com/proxy/library/docker:19.03.0
+  image: harbor.vnerd.com/proxy/library/docker:cli
+  tags:
+    - ps
+    - docker
   before_script:
     - echo ${DOCKER_REGISTRY_PASSWORD} | docker login ${DOCKER_REGISTRY_URL} -u ${DOCKER_REGISTRY_USERNAME} --password-stdin
     #- echo -n "$DOCKER_REGISTRY_PASSWORD" | docker login -u "$DOCKER_REGISTRY_USERNAME" --password-stdin "$DOCKER_REGISTRY_URL"
