@@ -59,6 +59,8 @@ publish:
   tags:
     - ps
     - docker
+  needs:
+    - package
   before_script:
     - echo -n "$DOCKER_REGISTRY_PASSWORD" | docker login -u "$DOCKER_REGISTRY_USERNAME" --password-stdin "$DOCKER_REGISTRY_URL"
   script:
@@ -72,8 +74,6 @@ publish:
     - CURYEAR=$(date +%Y)
     - CURMONTH=$(date +%-m)
     - echo -n "${CURYEAR}.${CURMONTH}.${CI_PIPELINE_IID}" > VERSION
-  dependencies:
-    - package
 
 
 
