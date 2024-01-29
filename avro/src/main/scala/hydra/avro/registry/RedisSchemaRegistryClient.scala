@@ -468,63 +468,6 @@ class RedisSchemaRegistryClient(restService: RestService,
     }
   }
 
-  // scalastyle:off method.length
-  private def registerInternal(subject: String, schema: Schema, version: Int, id: Int): Int = synchronized {
-    def register(): Int =
-      if (version >= 0) {
-        restService.registerSchema(schema.toString(), subject, version, id)
-      } else {
-        restService.registerSchema(schema.toString(), subject)
-      }
-
-    if (DO_NOT_CACHE_LIST.exists(subject.startsWith)) {
-      register()
-    } else {
-      val idKey = buildIdKey(subject)
-
-      def populateIdCache(sc: Schema, id: Int): Unit = {
-        idCache.caching(idKey)(idCacheDurationTtl) {
-          Map(id -> sc)
-        } match {
-          case Failure(_) => idCache.put(idKey)(Map(id -> sc), idCacheDurationTtl)
-          case Success(m) if m.exists(_ == (id -> sc)) => ()
-          case Success(m) =>
-            val concatMap: Map[Int, Schema] = Map(id -> sc) ++ m
-            idCache.put(idKey)(concatMap, idCacheDurationTtl)
-        }
-      }
-
-      val schemaKey = buildSchemaKey(subject)
-
-      schemaCache.get(schemaKey) match {
-        case Failure(_) =>
-          val retrievedId = register()
-          populateIdCache(schema, retrievedId)
-          retrievedId
-        case Success(map) => map match {
-          case Some(m) if m.exists(_._1 == schema) =>
-            val cachedId = m(schema)
-
-            if (id >= 0 && id != cachedId) {
-              throw new IllegalStateException("Schema already registered with id " + cachedId + " instead of input id " + id)
-            } else {
-              cachedId
-            }
-          case Some(m) =>
-            val retrievedId = register()
-            val concatMap: Map[Schema, Int] = Map(schema -> retrievedId) ++ m
-            schemaCache.put(schemaKey)(concatMap, schemaCacheDurationTtl)
-            populateIdCache(schema, retrievedId)
-            retrievedId
-          case None =>
-            val retrievedId = register()
-            populateIdCache(schema, retrievedId)
-            retrievedId
-        }
-      }
-    }
-  }
-
   override def reset(): Unit =
     throw new UnsupportedOperationException("The reset operation unsupported for a distributed cache.")
 
@@ -538,6 +481,7 @@ class RedisSchemaRegistryClient(restService: RestService,
     register(subject, schema, 0, -1)
   }
 
+  // scalastyle:off method.length
   override def register(subject: String, parsedSchema: ParsedSchema, version: Int, id: Int): Int = synchronized {
     val schema = toAvroSchema(parsedSchema)
 

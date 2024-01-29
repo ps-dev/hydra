@@ -161,9 +161,11 @@ object SchemaRegistry {
                                           schemaRegistryClientRetries: Int,
                                           schemaRegistryClientRetriesDelay: FiniteDuration
                                         ): F[SchemaRegistry[F]] = Sync[F].delay {
-    getFromSchemaRegistryClient(new CachedSchemaRegistryClient(schemaRegistryBaseUrl, maxCacheSize, securityConfig.toConfigMap.asJava), schemaRegistryClientRetries, schemaRegistryClientRetriesDelay)
+    getFromSchemaRegistryClient(new CachedSchemaRegistryClient(schemaRegistryBaseUrl, maxCacheSize,
+      securityConfig.toConfigMap.asJava), schemaRegistryClientRetries, schemaRegistryClientRetriesDelay)
   }
 
+  // scalastyle:off parameter.number
   def live[F[_] : Sync : Logger : Sleep](
                                           schemaRegistryBaseUrl: String,
                                           securityConfig: SchemaRegistrySecurityConfig,
@@ -194,11 +196,15 @@ object SchemaRegistry {
     getFromSchemaRegistryClient(new MockSchemaRegistryClient, schemaRegistryClientRetries = 0, schemaRegistryClientRetriesDelay = 1.milliseconds)
   }
 
-  def test[F[_] : Sync : Logger : Sleep](mockedClient: SchemaRegistryClient, schemaRegistryClientRetries: Int = 3, schemaRegistryClientRetriesDelay: FiniteDuration = 500.milliseconds): F[SchemaRegistry[F]] = Sync[F].delay {
+  def test[F[_] : Sync : Logger : Sleep](mockedClient: SchemaRegistryClient, schemaRegistryClientRetries: Int = 3,
+                                         schemaRegistryClientRetriesDelay: FiniteDuration = 500.milliseconds): F[SchemaRegistry[F]] = Sync[F].delay {
     getFromSchemaRegistryClient(mockedClient, schemaRegistryClientRetries, schemaRegistryClientRetriesDelay)
   }
 
-  private def getFromSchemaRegistryClient[F[_] : Sync : Logger : Sleep](schemaRegistryClient: SchemaRegistryClient, schemaRegistryClientRetries: Int, schemaRegistryClientRetriesDelay: FiniteDuration): SchemaRegistry[F] =
+  // scalastyle:off method.length
+  private def getFromSchemaRegistryClient[F[_] : Sync : Logger : Sleep](schemaRegistryClient: SchemaRegistryClient,
+                                                                        schemaRegistryClientRetries: Int,
+                                                                        schemaRegistryClientRetriesDelay: FiniteDuration): SchemaRegistry[F] =
     new SchemaRegistry[F] {
       val retryPolicy = limitRetries(schemaRegistryClientRetries) |+| constantDelay[F](schemaRegistryClientRetriesDelay)
 
@@ -255,7 +261,8 @@ object SchemaRegistry {
             }
             Sync[F].delay(schemaRegistryClient.register(subject, schema))
           } else {
-            Sync[F].raiseError[SchemaVersion](IncompatibleSchemaException("Incompatible Schema Evolution. You may add fields with default fields, or remove fields with default fields."))
+            Sync[F].raiseError[SchemaVersion](
+              IncompatibleSchemaException("Incompatible Schema Evolution. You may add fields with default fields, or remove fields with default fields."))
           }
         } yield schemaVersion
       }

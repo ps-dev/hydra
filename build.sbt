@@ -18,7 +18,7 @@ lazy val defaultSettings = Seq(
   dependencyOverrides ++= Seq(
     "org.apache.commons" % "commons-compress" % "1.24.0",
     "io.netty" % "netty-codec" % "4.1.77.Final",
-//    "org.apache.zookeeper" % "zookeeper" % "3.7.2",
+//    "org.apache.zookeeper" % "zookeeper" % "3.7.2", -- snyk vulnerability fix
     "org.xerial.snappy" % "snappy-java" % "1.1.10.4",
     "org.apache.avro" % "avro" % Dependencies.avroVersion,
     "com.fasterxml.jackson.core" % "jackson-databind" % "2.13.3",
