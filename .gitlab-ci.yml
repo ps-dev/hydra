@@ -7,13 +7,9 @@ image: openjdk:8
 variables:
   ARTIFACT_NAME: hydra-publish
   IMAGE_NAME: hydra
-  DOCKER_REGISTRY_IMAGE: harbor.vnerd.com/library/${IMAGE_NAME}
-  DOCKER_REGISTRY_URL: "harbor.vnerd.com/library"
-  DOCKER_HOST: tcp://localhost:2376
-  DOCKER_TLS_CERTDIR: "/certs"
-  DOCKER_CERT_PATH: "$DOCKER_TLS_CERTDIR/client"
-  DOCKER_TLS_VERIFY: 1
-
+  DOCKER_REGISTRY_URL: harbor.vnerd.com/library
+  DOCKER_REGISTRY_IMAGE: ${DOCKER_REGISTRY_URL}/${IMAGE_NAME}
+  
 before_script:
   - apt-get update -yqq
   - apt-get install -yqq apt-transport-https apt-utils
@@ -21,8 +17,6 @@ before_script:
   - mkdir -p /root/.gnupg
   - gpg --recv-keys --no-default-keyring --keyring gnupg-ring:/etc/apt/trusted.gpg.d/scalasbt-release.gpg --keyserver hkp://keyserver.ubuntu.com:80 2EE0EA64E40A89B84B2DF73499E82A75642AC823
   - chmod 644 /etc/apt/trusted.gpg.d/scalasbt-release.gpg
-  - apt-get update -yqq
-  - apt-get install -yqq sbt docker.io
   
 stages:
   - build
@@ -79,6 +73,11 @@ publish:
     - CURYEAR=$(date +%Y)
     - CURMONTH=$(date +%-m)
     - echo -n "${CURYEAR}.${CURMONTH}.${CI_PIPELINE_IID}" > VERSION
+  variables:
+    DOCKER_HOST: tcp://localhost:2376
+    DOCKER_TLS_CERTDIR: "/certs"
+    DOCKER_CERT_PATH: "$DOCKER_TLS_CERTDIR/client"
+    DOCKER_TLS_VERIFY: 1
 
 deploy: 
   stage: deploy
@@ -90,13 +89,6 @@ deploy:
     SALT_ARGUMENTS: systemd-app.deploy
     SALT_USERNAME: tcity-data-platform
     SALT_KWARGS: 'failhard=true test=True'
-    SALT_PILLAR: $CI_PROJECT_DIR/infrastructure/salt/pillars/expert-portal/pillar_overrides.yaml
+    #SALT_PILLAR: $CI_PROJECT_DIR/infrastructure/salt/pillars/expert-portal/pillar_overrides.yaml
     BUILD_VERSION: ${CI_PIPELINE_IID}
     SALT_URL: https://saltmaster-stage.vnerd.com:8000
-
-
-
-
-
-
-
