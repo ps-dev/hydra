@@ -1,3 +1,7 @@
+include:
+  - project: 'pluralsight/experience/gitlab-helpers'
+    file: '/salt-deploy/helper.yml'
+
 image: openjdk:8
 
 variables:
@@ -24,6 +28,7 @@ stages:
   - build
   - package
   - publish
+  - deploy
 
 build:
   stage: build
@@ -74,6 +79,21 @@ publish:
     - CURYEAR=$(date +%Y)
     - CURMONTH=$(date +%-m)
     - echo -n "${CURYEAR}.${CURMONTH}.${CI_PIPELINE_IID}" > VERSION
+
+deploy: 
+  stage: deploy
+  extends: .saltDeploy
+  variables:
+    CI_JOB_STAGE: stage
+    SALT_TARGET: roles:hydra-publish-msk
+    SALT_PASSWORD: ${LDAP_PASS}
+    SALT_ARGUMENTS: systemd-app.deploy
+    SALT_USERNAME: tcity-data-platform
+    SALT_KWARGS: 'failhard=true test=True'
+    SALT_PILLAR: $CI_PROJECT_DIR/infrastructure/salt/pillars/expert-portal/pillar_overrides.yaml
+    BUILD_VERSION: ${CI_PIPELINE_IID}
+    SALT_URL: https://saltmaster-stage.vnerd.com:8000
+
 
 
 
