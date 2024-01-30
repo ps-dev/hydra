@@ -17,6 +17,9 @@ before_script:
   - mkdir -p /root/.gnupg
   - gpg --recv-keys --no-default-keyring --keyring gnupg-ring:/etc/apt/trusted.gpg.d/scalasbt-release.gpg --keyserver hkp://keyserver.ubuntu.com:80 2EE0EA64E40A89B84B2DF73499E82A75642AC823
   - chmod 644 /etc/apt/trusted.gpg.d/scalasbt-release.gpg
+  - apt-get update -yqq
+  - apt-get install -yqq sbt
+
   
 stages:
   - build
