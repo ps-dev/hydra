@@ -91,7 +91,7 @@ deploy:
     SALT_PASSWORD: ${LDAP_PASS}
     SALT_ARGUMENTS: systemd-app
     SALT_USERNAME: tcity-data-platform
-    SALT_KWARGS: 'failhard=true test=True'
+    SALT_KWARGS: 'failhard=true'
     #SALT_PILLAR: $CI_PROJECT_DIR/infrastructure/salt/pillars/expert-portal/pillar_overrides.yaml
     BUILD_VERSION: ${CI_PIPELINE_IID}
     SALT_URL: https://saltmaster-stage.vnerd.com:8000
