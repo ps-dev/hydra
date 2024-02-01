@@ -9,6 +9,13 @@ variables:
   IMAGE_NAME: hydra
   DOCKER_REGISTRY_URL: harbor.vnerd.com/library
   DOCKER_REGISTRY_IMAGE: ${DOCKER_REGISTRY_URL}/${IMAGE_NAME}
+  ARTIFACTORY_REPOSITORY_URL: https://repository.vnerd.com/artifactory
+  ARTIFACTORY_REPOSITORY: bounded-context
+  ARTIFACTORY_ID: hydra/publish
+  ARTIFACTORY_ARTIFACT_VERSION: ${ARTIFACT_NAME}-${CI_PIPELINE_IID}.tgz
+  ARTIFACTORY_PATH: ${ARTIFACTORY_ID}/${ARTIFACTORY_ARTIFACT_VERSION}
+  ARTIFACTORY_ARTIFACT_URL: ${ARTIFACTORY_REPOSITORY_URL}/${ARTIFACTORY_REPOSITORY}/${ARTIFACTORY_PATH}
+
   
 before_script:
   - apt-get update -yqq
@@ -49,6 +56,12 @@ package:
     - echo "##teamcity[publishArtifacts '${ARTIFACT_NAME}-${CI_PIPELINE_IID}.tgz']"
     - md5sum ${ARTIFACT_NAME}-${CI_PIPELINE_IID}.tgz > ${ARTIFACT_NAME}-${CI_PIPELINE_IID}.tgz.md5
     - echo "##teamcity[publishArtifacts '%env.ARTIFACT_NAME%-${CI_PIPELINE_IID}.tgz.md5']"
+    - |
+      curl \
+      -H "Authorization: Bearer ${NPM_TOKEN}" \
+      -X PUT ${ARTIFACTORY_ARTIFACT_URL} \
+      -T ${ARTIFACTORY_ARTIFACT_VERSION}
+
   artifacts:
     paths:
       - ${ARTIFACT_NAME}-${CI_PIPELINE_IID}.tgz
@@ -92,6 +105,6 @@ deploy:
     SALT_ARGUMENTS: systemd-app
     SALT_USERNAME: tcity-data-platform
     SALT_KWARGS: 'failhard=true'
-    #SALT_PILLAR: $CI_PROJECT_DIR/infrastructure/salt/pillars/expert-portal/pillar_overrides.yaml
+    SALT_PILLAR: $CI_PROJECT_DIR/pillar_overrides.yaml
     BUILD_VERSION: ${CI_PIPELINE_IID}
     SALT_URL: https://saltmaster-stage.vnerd.com:8000
