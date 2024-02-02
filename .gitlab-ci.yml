@@ -55,7 +55,7 @@ package:
     - tar czf ${ARTIFACT_NAME}-${CI_PIPELINE_IID}.tgz --exclude=*.tmp --exclude=*.tgz --exclude=*.tgz.md5 VERSION ps-publish/
     - echo "##teamcity[publishArtifacts '${ARTIFACT_NAME}-${CI_PIPELINE_IID}.tgz']"
     - md5sum ${ARTIFACT_NAME}-${CI_PIPELINE_IID}.tgz > ${ARTIFACT_NAME}-${CI_PIPELINE_IID}.tgz.md5
-    - echo "##teamcity[publishArtifacts '%env.ARTIFACT_NAME%-${CI_PIPELINE_IID}.tgz.md5']"
+    - echo "${ARTIFACTORY_ARTIFACT_URL}"
     - |
       curl \
       -H "Authorization: Bearer ${NPM_TOKEN}" \
