@@ -73,7 +73,7 @@ object Dependencies {
     val retry = "com.softwaremill.retry" %% "retry" % "0.3.3"
 
     val embeddedKafka =
-      "io.github.embeddedkafka" %% "embedded-kafka" % "2.8.1" % "test" excludeAll(ExclusionRule("org.apache.kafka"))
+      "io.github.embeddedkafka" %% "embedded-kafka" % "2.8.1" % "test"
 
     lazy val kamon = Seq(
       "io.kamon" %% "kamon-core" % kamonVersion,

@@ -22,6 +22,7 @@ lazy val defaultSettings = Seq(
     "org.xerial.snappy" % "snappy-java" % "1.1.10.4",
     "org.apache.avro" % "avro" % Dependencies.avroVersion,
     "com.fasterxml.jackson.core" % "jackson-databind" % "2.13.3",
+    "org.apache.kafka" %% "kafka" % "2.8.2" % "test",
     "io.confluent" %% "kafka-schema-registry" % "6.2.1" % "test",
     "io.confluent" %% "kafka-avro-serializer" % "6.2.1" % "test",
   ),
@@ -114,8 +115,8 @@ lazy val core = Project(
     name := "hydra-core",
     libraryDependencies ++= Dependencies.coreDeps ++ Dependencies.awsAuthDeps ++ Dependencies.kafkaSchemaRegistryDep,
     dependencyOverrides ++= Seq(
-      "org.apache.kafka" %% "kafka" % "2.8.2" % "compile,runtime",
-      "org.apache.kafka" % "kafka-clients" % "2.8.2" % "compile,runtime"
+      "org.apache.kafka" %% "kafka" % "2.8.2",
+      "org.apache.kafka" % "kafka-clients" % "2.8.2"
     )
   )
 
@@ -129,8 +130,8 @@ lazy val kafka = Project(
     name := "hydra-kafka",
     libraryDependencies ++= Dependencies.kafkaDeps,
     dependencyOverrides ++= Seq(
-      "org.apache.kafka" %% "kafka" % "2.8.2" % "compile,runtime",
-      "org.apache.kafka" % "kafka-clients" % "2.8.2" % "compile,runtime"
+      "org.apache.kafka" %% "kafka" % "2.8.2",
+      "org.apache.kafka" % "kafka-clients" % "2.8.2"
     )
   )
 
