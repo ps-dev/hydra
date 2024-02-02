@@ -1,6 +1,6 @@
 systemd-app:
   artifacts:
-    expert-portal:
+    hydra:
       gitlab: True
       artifactory_packaging : tgz
       artifactory_artifact_version: latest
