@@ -1,9 +1,9 @@
 systemd-app:
   artifacts:
-    hydra:
+    hydra-publish:
       gitlab: True
       artifactory_packaging : tgz
       artifactory_artifact_version: latest
       artifactory_artifact_path: hydra/publish
       artifactory_repository: bounded-context
-      artifactory_artifact_name: hydra_publish
+      artifactory_artifact_name: hydra-publish
