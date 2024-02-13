@@ -16,6 +16,12 @@ variables:
   ARTIFACTORY_PATH: ${ARTIFACTORY_ID}/${ARTIFACTORY_ARTIFACT_VERSION}
   ARTIFACTORY_ARTIFACT_URL: ${ARTIFACTORY_REPOSITORY_URL}/${ARTIFACTORY_REPOSITORY}/${ARTIFACTORY_PATH}
   BUILD_VERSION: 1.0.${CI_PIPELINE_IID}
+  SALT_TARGET: roles:hydra-publish-msk
+  SALT_PASSWORD: ${LDAP_PASS}
+  SALT_ARGUMENTS: systemd-app
+  SALT_USERNAME: tcity-data-platform
+  SALT_KWARGS: 'failhard=true'
+  SALT_PILLAR: $CI_PROJECT_DIR/pillar_overrides.yaml
 
   
 before_script:
@@ -106,12 +112,6 @@ deploy_staging:
     - cat $SALT_PILLAR  
   variables:
     CI_JOB_STAGE: stage
-    SALT_TARGET: roles:hydra-publish-msk
-    SALT_PASSWORD: ${LDAP_PASS}
-    SALT_ARGUMENTS: systemd-app
-    SALT_USERNAME: tcity-data-platform
-    SALT_KWARGS: 'failhard=true'
-    SALT_PILLAR: $CI_PROJECT_DIR/pillar_overrides.yaml
     SALT_URL: https://saltmaster-stage.vnerd.com:8000
 
 deploy_production: 
@@ -123,11 +123,5 @@ deploy_production:
     - sed -i "s/latest/$BUILD_VERSION/" $SALT_PILLAR
     - cat $SALT_PILLAR  
   variables:
-    CI_JOB_STAGE: stage
-    SALT_TARGET: roles:hydra-publish-msk
-    SALT_PASSWORD: ${LDAP_PASS}
-    SALT_ARGUMENTS: systemd-app
-    SALT_USERNAME: tcity-data-platform
-    SALT_KWARGS: 'failhard=true'
-    SALT_PILLAR: $CI_PROJECT_DIR/pillar_overrides.yaml
+    CI_JOB_STAGE: production
     SALT_URL: https://saltmaster-production.vnerd.com:8000
