@@ -1,6 +1,8 @@
 include:
   - project: 'pluralsight/experience/gitlab-helpers'
     file: '/salt-deploy/helper.yml'
+  - project: 'pluralsight/experience/gitlab-helpers'
+    file: '/helm-deploy/helper.yml'
 
 image: openjdk:8
 
