@@ -31,7 +31,7 @@
                 <SizeBasedTriggeringPolicy size="10 MB"/>
             </Policies>
         </RollingFile>
-        <RollingFile name="rollingFileHydraIngest" fileName="${LOG_DIR}/hydra-ingest.log"
+        <RollingFile name="RollingFileHydraIngest" fileName="${LOG_DIR}/hydra-ingest.log"
                      filePattern="${LOG_DIR}/$${date:yyyy-MM}/hydra-ingest-%d{yyyy-MM-dd}.log.gz">
             <PatternLayout>
                 <Pattern>%d{yyyy-MM-dd HH:mm:ss} %-5p (%C:%L) - %m%n</Pattern>
@@ -45,27 +45,27 @@
     <Loggers>
         <Logger name="hydra.ingest.http" level="info" additivity="false">
             <AppenderRef ref="LogToRollingFile"/>
-            <AppenderRef ref="rollingFileHydraIngest"/>
+            <AppenderRef ref="RollingFileHydraIngest"/>
         </Logger>
         <Logger name="org.reflections" additivity="false">
             <AppenderRef ref="STDOUT"/>
-            <AppenderRef ref="rollingFileHydraIngest"/>
+            <AppenderRef ref="RollingFileHydraIngest"/>
         </Logger>
         <Logger name="org.apache.kafka" additivity="false" level="ERROR">
             <AppenderRef ref="STDOUT"/>
-            <AppenderRef ref="rollingFileHydraIngest"/>
+            <AppenderRef ref="RollingFileHydraIngest"/>
         </Logger>
         <Logger name="io.confluent.common.config" additivity="false" level="ERROR">
             <AppenderRef ref="STDOUT"/>
-            <AppenderRef ref="rollingFileHydraIngest"/>
+            <AppenderRef ref="RollingFileHydraIngest"/>
         </Logger>
         <Logger name="akka.management" additivity="false" level="ERROR">
             <AppenderRef ref="STDOUT"/>
-            <AppenderRef ref="rollingFileHydraIngest"/>
+            <AppenderRef ref="RollingFileHydraIngest"/>
         </Logger>
         <Root level="${env:LOG_LEVEL}">
             <AppenderRef ref="STDOUT"/>
-            <AppenderRef ref="rollingFileHydraIngest"/>
+            <AppenderRef ref="RollingFileHydraIngest"/>
         </Root>
     </Loggers>
 </Configuration>
