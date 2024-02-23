@@ -86,8 +86,8 @@ publish:
     - pwd
     - ls -lh
     - docker build -t ${IMAGE_NAME} -f Dockerfile.new .
-    - docker tag ${IMAGE_NAME} ${DOCKER_REGISTRY_IMAGE}:${BUILD_VERSION}
-    - docker push ${DOCKER_REGISTRY_IMAGE}:${BUILD_VERSION}
+    - docker tag ${IMAGE_NAME} ${DOCKER_REGISTRY_IMAGE}:${BUILD_VERSION}-${CI_COMMIT_SHORT_SHA}
+    - docker push ${DOCKER_REGISTRY_IMAGE}:${BUILD_VERSION}-${CI_COMMIT_SHORT_SHA}
     - docker tag ${IMAGE_NAME} ${DOCKER_REGISTRY_IMAGE}:latest
     - docker push ${DOCKER_REGISTRY_IMAGE}:latest
     - CURYEAR=$(date +%Y)
@@ -107,7 +107,7 @@ deploy_dev:
       name: staging
     when: manual
     before_script:
-      - sed -i -e "s/%IMAGE_TAG%/1.0.${CI_PIPELINE_IID}/g" $HELM_VALUES_FILE
+      - sed -i -e "s/%IMAGE_TAG%/1.0.${CI_PIPELINE_IID}-${CI_COMMIT_SHORT_SHA}/g" $HELM_VALUES_FILE
       - cat $HELM_VALUES_FILE
       - echo 1.0.${CI_PIPELINE_IID}-${CI_COMMIT_SHORT_SHA}
       - kubectl config set-cluster app-${CI_ENVIRONMENT_NAME%/*} --server=${HELM_K8S_CLUSTER_URL} --embed-certs --certificate-authority="$HELM_K8S_CLUSTER_CACERT"
