@@ -45,7 +45,7 @@ nodeSelector: {}
 
 config:
   LOG_DIR: /var/log/hydra/
-  LOG_LEVEL: DEBUG
+  LOG_LEVEL: INFO
   HYDRA_KAFKA_PRODUCER_BOOTSTRAP_SERVERS: b-1.isdvsdevblueuswest2.8xkirx.c14.kafka.us-west-2.amazonaws.com:9098,b-3.isdvsdevblueuswest2.8xkirx.c14.kafka.us-west-2.amazonaws.com:9098,b-2.isdvsdevblueuswest2.8xkirx.c14.kafka.us-west-2.amazonaws.com:9098
   HYDRA_SCHEMA_REGISTRY_URL: https://dvs-dev-schema-registry.eplur-staging.vnerd.com:8081
   HYDRA_V2_METADATA_CONTACT: '#dev-data-platform'
