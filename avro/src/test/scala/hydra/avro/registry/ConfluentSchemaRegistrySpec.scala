@@ -17,7 +17,6 @@ package hydra.avro.registry
 
 import com.typesafe.config.ConfigFactory
 import hydra.common.config.KafkaConfigUtils.SchemaRegistrySecurityConfig
-import io.confluent.kafka.schemaregistry.avro.AvroSchema
 import io.confluent.kafka.schemaregistry.client.{CachedSchemaRegistryClient, MockSchemaRegistryClient}
 import org.apache.avro.Schema
 import org.scalatest.concurrent.ScalaFutures
@@ -53,7 +52,7 @@ class ConfluentSchemaRegistrySpec
 
   override def beforeAll(): Unit = {
     id =
-      ConfluentSchemaRegistry.mockRegistry.register(schema.getFullName, new AvroSchema(schema))
+      ConfluentSchemaRegistry.mockRegistry.register(schema.getFullName, schema)
   }
 
   describe("When creating a schema registry client") {

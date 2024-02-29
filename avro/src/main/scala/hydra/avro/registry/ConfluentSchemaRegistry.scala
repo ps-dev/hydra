@@ -52,7 +52,7 @@ object ConfluentSchemaRegistry extends LoggingAdapter {
 
   private val cachedClients = CacheBuilder
     .newBuilder()
-    .build[SchemaRegistryClientInfo, ConfluentSchemaRegistry](
+    .build(
       new CacheLoader[SchemaRegistryClientInfo, ConfluentSchemaRegistry] {
 
         def load(info: SchemaRegistryClientInfo): ConfluentSchemaRegistry = {

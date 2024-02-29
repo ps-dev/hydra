@@ -7,7 +7,7 @@ import hydra.common.config.KafkaConfigUtils.KafkaClientSecurityConfig
 import hydra.kafka.KafkaUtilsSpec.{emptyKafkaClientSecurityConfig, kafkaClientSecurityConfig}
 import hydra.kafka.util.KafkaUtils
 import hydra.kafka.util.KafkaUtils.TopicDetails
-import io.github.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
+import net.manub.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
 import org.scalatest.concurrent.{Eventually, ScalaFutures}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers

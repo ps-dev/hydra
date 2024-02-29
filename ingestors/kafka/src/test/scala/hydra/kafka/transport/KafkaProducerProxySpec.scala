@@ -10,7 +10,7 @@ import hydra.kafka.producer.{JsonRecord, KafkaRecordMetadata, StringRecord}
 import hydra.kafka.transport.KafkaProducerProxy.ProduceToKafka
 import hydra.kafka.transport.KafkaTransport.RecordProduceError
 import hydra.kafka.util.KafkaUtils
-import io.github.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
+import net.manub.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
 import org.apache.kafka.clients.producer.RecordMetadata
 import org.apache.kafka.common.{KafkaException, TopicPartition}
 import org.scalatest.BeforeAndAfterAll
@@ -32,7 +32,7 @@ class KafkaProducerProxySpec
 
   implicit val config = EmbeddedKafkaConfig(
     kafkaPort = 8012,
-    zooKeeperPort = 3133,
+    zooKeeperPort = 3111,
     customBrokerProperties = Map("auto.create.topics.enable" -> "false")
   )
 

@@ -2,7 +2,7 @@ package hydra.kafka.algebras
 
 import cats.effect.{Concurrent, ContextShift, IO, Timer}
 import hydra.avro.registry.SchemaRegistry
-import io.github.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
+import net.manub.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
 import org.apache.avro.generic.GenericRecord
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers

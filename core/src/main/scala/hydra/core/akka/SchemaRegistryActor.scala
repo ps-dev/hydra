@@ -16,7 +16,7 @@ import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientExcept
 import org.apache.avro.{Schema, SchemaParseException}
 import org.apache.kafka.common.PartitionInfo
 import scalacache.cachingF
-import io.confluent.kafka.schemaregistry.avro.AvroSchema
+
 import scala.collection.JavaConverters._
 import scala.collection.immutable.Map
 import scala.concurrent.Future
@@ -173,8 +173,8 @@ class SchemaRegistryActor(
 
       val subject = getSubject(schema)
       log.debug(s"Registering schema ${schema.getFullName}: $json")
-      val schemaId = registry.registryClient.register(subject, new AvroSchema(schema))
-      val version = registry.registryClient.getVersion(subject, new AvroSchema(schema))
+      val schemaId = registry.registryClient.register(subject, schema)
+      val version = registry.registryClient.getVersion(subject, schema)
       RegisterSchemaResponse(SchemaResource(schemaId, version, schema))
     }
   }

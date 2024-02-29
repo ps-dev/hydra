@@ -16,7 +16,6 @@
 package hydra.avro.resource
 
 import hydra.avro.registry.SchemaRegistryException
-import io.confluent.kafka.schemaregistry.avro.AvroSchema
 import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient
 import org.apache.avro.{Schema, SchemaBuilder}
 import org.scalatest.BeforeAndAfterEach
@@ -209,7 +208,7 @@ class SchemaResourceLoaderSpec
       "returns the same underlying key schema instance if the registry metadata hasn't changed"
     ) {
       val client = new MockSchemaRegistryClient
-      client.register(testKeySchema.getFullName + "-key", new AvroSchema(testKeySchema))
+      client.register(testKeySchema.getFullName + "-key", testKeySchema)
       val loader = new SchemaResourceLoader(
         "http://localhost:48223",
         client,
@@ -232,7 +231,7 @@ class SchemaResourceLoaderSpec
     ) {
       val nschema = newValueSchema(testValueSchema.getNamespace, "ntest")
       val client = new MockSchemaRegistryClient
-      client.register(nschema.getFullName + "-value", new AvroSchema(nschema))
+      client.register(nschema.getFullName + "-value", nschema)
       val loader = new SchemaResourceLoader(
         "http://localhost:48223",
         client,
@@ -259,7 +258,7 @@ class SchemaResourceLoaderSpec
         false,
         fields.asJava
       )
-      client.register(nschema.getFullName + "-value", new AvroSchema(evolvedSchema))
+      client.register(nschema.getFullName + "-value", evolvedSchema)
       eventually {
         whenReady(loader.retrieveValueSchema(nschema.getFullName)) {
           schemaResource => (schemaResource.schema eq nschema) shouldBe false
@@ -272,7 +271,7 @@ class SchemaResourceLoaderSpec
     ) {
       val nschema = newKeySchema(testKeySchema.getNamespace, "ntest")
       val client = new MockSchemaRegistryClient
-      client.register(nschema.getFullName + "-value", new AvroSchema(nschema))
+      client.register(nschema.getFullName + "-value", nschema)
       val loader = new SchemaResourceLoader(
         "http://localhost:48223",
         client,
@@ -301,7 +300,7 @@ class SchemaResourceLoaderSpec
         false,
         fields.asJava
       )
-      client.register(nschema.getFullName + "-value", new AvroSchema(evolvedSchema))
+      client.register(nschema.getFullName + "-value", evolvedSchema)
       eventually {
         whenReady(loader.retrieveValueSchema(nschema.getFullName)) {
           schemaResource => (schemaResource.schema eq nschema) shouldBe false

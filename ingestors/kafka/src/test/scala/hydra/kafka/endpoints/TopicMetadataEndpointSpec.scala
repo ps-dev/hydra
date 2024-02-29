@@ -22,11 +22,9 @@ import hydra.kafka.consumer.KafkaConsumerProxy.{GetPartitionInfo, ListTopics, Li
 import hydra.kafka.marshallers.HydraKafkaJsonSupport
 import hydra.kafka.model.{DataClassification, ObsoleteDataClassification, RequiredField, SubDataClassification}
 import hydra.kafka.model.TopicMetadataV2Request.Subject
-import org.typelevel.log4cats.SelfAwareStructuredLogger
-import org.typelevel.log4cats.slf4j.Slf4jLogger
-import io.github.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
 import hydra.kafka.programs.CreateTopicProgram
 import hydra.kafka.util.KafkaUtils.TopicDetails
+import net.manub.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
 import org.apache.avro.{LogicalTypes, Schema, SchemaBuilder}
 import org.apache.kafka.common.{Node, PartitionInfo}
 import org.scalatest.BeforeAndAfterAll
@@ -58,7 +56,7 @@ class TopicMetadataEndpointSpec
     Slf4jLogger.getLogger[F]
 
   implicit val kafkaConfig: EmbeddedKafkaConfig =
-    EmbeddedKafkaConfig(kafkaPort = 8012, zooKeeperPort = 3789)
+    EmbeddedKafkaConfig(kafkaPort = 8012, zooKeeperPort = 3111)
 
   implicit val contextShift: ContextShift[IO] = IO.contextShift(ExecutionContext.global)
   implicit val concurrent: Concurrent[IO] = IO.ioConcurrentEffect

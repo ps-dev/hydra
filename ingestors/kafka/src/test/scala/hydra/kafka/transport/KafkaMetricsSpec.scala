@@ -26,7 +26,7 @@ class KafkaMetricsSpec
 
   implicit val config = EmbeddedKafkaConfig(
     kafkaPort = 8012,
-    zooKeeperPort = 3114,
+    zooKeeperPort = 3111,
     customBrokerProperties = Map(
       "auto.create.topics.enable" -> "false",
       "offsets.topic.replication.factor" -> "1"
