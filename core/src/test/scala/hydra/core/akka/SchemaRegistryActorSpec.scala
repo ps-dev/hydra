@@ -11,6 +11,7 @@ import hydra.avro.resource.SchemaResource
 import hydra.common.config.KafkaConfigUtils.SchemaRegistrySecurityConfig
 import hydra.core.akka.SchemaRegistryActor._
 import hydra.core.protocol.HydraApplicationError
+import io.confluent.kafka.schemaregistry.avro.AvroSchema
 import org.apache.avro.Schema.Parser
 import org.apache.avro.SchemaBuilder
 import org.scalatest.BeforeAndAfterAll
@@ -58,9 +59,9 @@ class SchemaRegistryActorSpec
     .endRecord
 
   override def beforeAll() = {
-    client.register("hydra.test.Tester-value", testSchema)
-    client.register("hydra.test.TesterWithKey-key", testKeySchema)
-    client.register("hydra.test.TesterWithKey-value", testSchema)
+    client.register("hydra.test.Tester-value", new AvroSchema(testSchema))
+    client.register("hydra.test.TesterWithKey-key", new AvroSchema(testKeySchema))
+    client.register("hydra.test.TesterWithKey-value", new AvroSchema(testSchema))
   }
 
   val listener = TestProbe()

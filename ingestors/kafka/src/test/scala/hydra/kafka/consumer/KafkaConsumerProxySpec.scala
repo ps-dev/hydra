@@ -18,7 +18,7 @@ package hydra.kafka.consumer
 import akka.actor.{ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit}
 import hydra.kafka.consumer.KafkaConsumerProxy._
-import net.manub.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
+import io.github.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
 import org.apache.kafka.common.TopicPartition
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.funspec.AnyFunSpecLike
@@ -37,7 +37,7 @@ class KafkaConsumerProxySpec
     with ImplicitSender {
 
   implicit val config =
-    EmbeddedKafkaConfig(kafkaPort = 8012, zooKeeperPort = 3111)
+    EmbeddedKafkaConfig(kafkaPort = 8012, zooKeeperPort = 3121)
 
   override def beforeAll() = {
     super.beforeAll()

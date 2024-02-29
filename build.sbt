@@ -16,11 +16,15 @@ lazy val defaultSettings = Seq(
   excludeDependencies += "org.slf4j" % "slf4j-log4j12",
   excludeDependencies += "log4j" % "log4j",
   dependencyOverrides ++= Seq(
-    "org.apache.commons" % "commons-lang3" % "3.12.0",
-    "org.apache.commons" % "commons-compress" % "1.22",
-    "org.apache.commons" % "lang3" % "3.1.0",
-    "io.confluent" % "kafka-schema-registry" % "5.4.2" % "test",
-    "io.confluent" % "kafka-avro-serializer" % "5.4.2" % "test"
+    "org.apache.commons" % "commons-compress" % "1.24.0",
+    "io.netty" % "netty-codec" % "4.1.77.Final",
+//    "org.apache.zookeeper" % "zookeeper" % "3.7.2", -- snyk vulnerability fix
+    "org.xerial.snappy" % "snappy-java" % "1.1.10.4",
+    "org.apache.avro" % "avro" % Dependencies.avroVersion,
+    "com.fasterxml.jackson.core" % "jackson-databind" % "2.13.3",
+    "org.apache.kafka" %% "kafka" % "2.8.2" % "test",
+    "io.confluent" %% "kafka-schema-registry" % "6.2.1" % "test",
+    "io.confluent" %% "kafka-avro-serializer" % "6.2.1" % "test",
   ),
   addCompilerPlugin(
     "org.typelevel" %% "kind-projector" % "0.11.3" cross CrossVersion.full
@@ -109,10 +113,10 @@ lazy val core = Project(
   .settings(
     moduleSettings,
     name := "hydra-core",
-    libraryDependencies ++= Dependencies.coreDeps ++ Dependencies.awsAuthDeps,
+    libraryDependencies ++= Dependencies.coreDeps ++ Dependencies.awsAuthDeps ++ Dependencies.kafkaSchemaRegistryDep,
     dependencyOverrides ++= Seq(
-      "io.confluent" % "kafka-schema-registry" % "5.4.2",
-      "io.confluent" % "kafka-avro-serializer" % "5.4.2"
+      "org.apache.kafka" %% "kafka" % "2.8.2",
+      "org.apache.kafka" % "kafka-clients" % "2.8.2"
     )
   )
 
@@ -126,8 +130,8 @@ lazy val kafka = Project(
     name := "hydra-kafka",
     libraryDependencies ++= Dependencies.kafkaDeps,
     dependencyOverrides ++= Seq(
-      "io.confluent" % "kafka-schema-registry" % "5.4.2",
-      "io.confluent" % "kafka-avro-serializer" % "5.4.2"
+      "org.apache.kafka" %% "kafka" % "2.8.2",
+      "org.apache.kafka" % "kafka-clients" % "2.8.2"
     )
   )
 
@@ -140,9 +144,6 @@ lazy val avro = Project(
     name := "hydra-avro",
     libraryDependencies ++= Dependencies.avroDeps
   )
-
-val sbSettings =
-  defaultSettings ++ Test.testSettings ++ noPublishSettings ++ restartSettings
 
 lazy val ingest = Project(
   id = "ingest",
