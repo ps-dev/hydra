@@ -4,7 +4,7 @@ import com.pluralsight.hydra.avro.JsonConverter
 import hydra.core.transport.AckStrategy
 import org.apache.avro.Schema
 import org.apache.avro.generic.GenericRecord
-
+import org.apache.commons.lang3.StringUtils
 
 /**
   * Created by alexsilva on 10/30/15.

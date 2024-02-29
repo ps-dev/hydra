@@ -9,7 +9,7 @@ import hydra.core.transport.{AckStrategy, RecordMetadata, TransportCallback}
 import hydra.kafka.producer.{DeleteTombstoneRecord, JsonRecord, StringRecord}
 import hydra.kafka.transport.KafkaProducerProxy.ProducerInitializationError
 import hydra.kafka.transport.KafkaTransport.RecordProduceError
-import io.github.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
+import net.manub.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
 import org.apache.kafka.common.KafkaException
 import org.apache.kafka.common.errors.SerializationException
 import org.scalatest.matchers.should.Matchers
@@ -85,11 +85,8 @@ class KafkaTransportSpec
 
     it("forwards to the right proxy") {
       val ack: TransportCallback =
-        (d: Long, m: Option[RecordMetadata], e: Option[Throwable]) => {
-          val msg = if(e.isDefined) e.get.getMessage else "DONE"
-          ingestor.ref ! msg
-        }
-
+        (d: Long, m: Option[RecordMetadata], e: Option[Throwable]) =>
+          ingestor.ref ! "DONE"
       val rec =
         StringRecord("transport_test", "key", "payload", AckStrategy.NoAck)
       transport ! Deliver(rec, 1, ack)
@@ -98,11 +95,8 @@ class KafkaTransportSpec
 
     it("handles delete records") {
       val ack: TransportCallback =
-        (d: Long, m: Option[RecordMetadata], e: Option[Throwable]) => {
-          val msg = if(e.isDefined) e.get.getMessage else "DONE"
-          ingestor.ref ! msg
-        }
-
+        (d: Long, m: Option[RecordMetadata], e: Option[Throwable]) =>
+          ingestor.ref ! "DONE"
       val rec =
         DeleteTombstoneRecord("transport_test", "key", AckStrategy.NoAck)
       transport ! Deliver(rec, 1, ack)

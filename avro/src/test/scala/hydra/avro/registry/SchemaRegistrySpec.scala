@@ -392,12 +392,12 @@ class SchemaRegistrySpec extends AnyFlatSpecLike with MockFactory with Matchers 
   it must "do retries for getAllVersions when SchemaRegistry throws error" in {
     val expectedVersions = List(1, 2, 3)
     val mockSchemaRegistryClient = mock[SchemaRegistryClient]
-    (mockSchemaRegistryClient.getAllVersions(_ : String))
+    (mockSchemaRegistryClient.getAllVersions _)
       .expects(*)
       .throws(new RestClientException("error", 0, 50005))
       .repeat(2)
 
-    (mockSchemaRegistryClient.getAllVersions(_ : String))
+    (mockSchemaRegistryClient.getAllVersions _)
       .expects(*)
       .returns(expectedVersions.map(Integer.valueOf).asJava)
 
@@ -426,7 +426,7 @@ class SchemaRegistrySpec extends AnyFlatSpecLike with MockFactory with Matchers 
 
   it must "fail if all attempts were used" in {
     val mockSchemaRegistryClient = mock[SchemaRegistryClient]
-    (mockSchemaRegistryClient.getAllVersions(_ : String))
+    (mockSchemaRegistryClient.getAllVersions _)
       .expects(*)
       .throws(new RestClientException("error", 0, 50005))
       .repeat(3)

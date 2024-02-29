@@ -10,7 +10,7 @@ import hydra.kafka.algebras.KafkaClientAlgebra.getOptionalGenericRecordDeseriali
 import hydra.kafka.util.KafkaUtils.TopicDetails
 import org.typelevel.log4cats.SelfAwareStructuredLogger
 import org.typelevel.log4cats.slf4j.Slf4jLogger
-import io.github.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
+import net.manub.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
 import org.joda.time.DurationFieldType.seconds
 import org.scalatest.{BeforeAndAfterAll, stats}
 import org.scalatest.matchers.should.Matchers

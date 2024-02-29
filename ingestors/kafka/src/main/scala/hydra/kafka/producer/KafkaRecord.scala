@@ -1,7 +1,7 @@
 package hydra.kafka.producer
 
 import hydra.core.transport.HydraRecord
-import hydra.common.util.ClassUtils
+import org.apache.commons.lang3.ClassUtils
 import org.apache.kafka.clients.producer.ProducerRecord
 
 /**

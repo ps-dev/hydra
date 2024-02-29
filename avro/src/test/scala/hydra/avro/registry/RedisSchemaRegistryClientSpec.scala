@@ -4,10 +4,9 @@ import org.apache.avro.{Schema, SchemaBuilder}
 import org.scalatest.BeforeAndAfterAll
 import com.github.sebruck.EmbeddedRedis
 import hydra.avro.registry.RedisSchemaRegistryClient.IntSchemaMetadataMapBinCodec
-import io.confluent.kafka.schemaregistry.avro.AvroSchema
 import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException
 import io.confluent.kafka.schemaregistry.client.{CachedSchemaRegistryClient, SchemaMetadata, SchemaRegistryClient}
-import io.github.embeddedkafka.schemaregistry.{EmbeddedKafka, EmbeddedKafkaConfig}
+import net.manub.embeddedkafka.schemaregistry.{EmbeddedKafka, EmbeddedKafkaConfig}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers.convertToAnyShouldWrapper
 import redis.embedded.RedisServer
@@ -61,16 +60,15 @@ class RedisSchemaRegistryClientSpec extends AnyFlatSpec with EmbeddedRedis with 
         val schema1: Schema = SchemaBuilder.record("Test1").fields()
           .requiredString("testing1").endRecord()
 
-        val schema12: Schema = SchemaBuilder.record("Test1").fields()
-          .requiredString("testing1").optionalString("testing22").endRecord()
+        val schema12: Schema = SchemaBuilder.record("Test12").fields()
+          .requiredString("testing1").endRecord()
 
         val schema2: Schema = SchemaBuilder.record("Test2").fields()
           .requiredString("testing2").endRecord()
 
         //register two schemas with different clients
-        val redisClientResult = redisClient.register(topicName1, new AvroSchema(schema1))
-        val cachedClientResult = cachedClient.register(topicName2 , new AvroSchema(schema2))
-
+        val redisClientResult = redisClient.register(topicName1, schema1)
+        val cachedClientResult = cachedClient.register(topicName2 ,schema2)
 
         //test the getAllSubjectsById method
         assert(redisClient.getAllSubjectsById(redisClientResult).contains(topicName1))
@@ -79,17 +77,17 @@ class RedisSchemaRegistryClientSpec extends AnyFlatSpec with EmbeddedRedis with 
         assert(cachedClient.getAllSubjectsById(cachedClientResult).contains(topicName2))
 
         //test the getById method
-        redisClient.getSchemaById(redisClientResult) shouldBe new AvroSchema(schema1)
-        cachedClient.getSchemaById(redisClientResult) shouldBe new AvroSchema(schema1)
-        redisClient.getSchemaById(cachedClientResult) shouldBe new AvroSchema(schema2)
-        cachedClient.getSchemaById(cachedClientResult) shouldBe new AvroSchema(schema2)
+        redisClient.getById(redisClientResult) shouldBe schema1
+        cachedClient.getById(redisClientResult) shouldBe schema1
+        redisClient.getById(cachedClientResult) shouldBe schema2
+        cachedClient.getById(cachedClientResult) shouldBe schema2
 
         //test the getBySubjectAndId method
         Thread.sleep(3000)
-        assert(redisClient.getSchemaBySubjectAndId(topicName1, redisClientResult).equals(new AvroSchema(schema1)))
-        assert(cachedClient.getSchemaBySubjectAndId(topicName1, redisClientResult).equals(new AvroSchema(schema1)))
-        assert(redisClient.getSchemaBySubjectAndId(topicName2, cachedClientResult).equals(new AvroSchema(schema2)))
-        assert(cachedClient.getSchemaBySubjectAndId(topicName2, cachedClientResult).equals(new AvroSchema(schema2)))
+        assert(redisClient.getBySubjectAndId(topicName1, redisClientResult).equals(schema1))
+        assert(cachedClient.getBySubjectAndId(topicName1, redisClientResult).equals(schema1))
+        assert(redisClient.getBySubjectAndId(topicName2, cachedClientResult).equals(schema2))
+        assert(cachedClient.getBySubjectAndId(topicName2, cachedClientResult).equals(schema2))
 
 
         //test the getAllSubjects method
@@ -111,10 +109,10 @@ class RedisSchemaRegistryClientSpec extends AnyFlatSpec with EmbeddedRedis with 
 
         //test the getId method
         Thread.sleep(3000)
-        redisClient.getId(topicName1, new AvroSchema(schema1)) shouldBe redisClientResult
-        cachedClient.getId(topicName1, new AvroSchema(schema1)) shouldBe redisClientResult
-        redisClient.getId(topicName2, new AvroSchema(schema2)) shouldBe cachedClientResult
-        cachedClient.getId(topicName2, new AvroSchema(schema2)) shouldBe cachedClientResult
+        redisClient.getId(topicName1, schema1) shouldBe redisClientResult
+        cachedClient.getId(topicName1, schema1) shouldBe redisClientResult
+        redisClient.getId(topicName2, schema2) shouldBe cachedClientResult
+        cachedClient.getId(topicName2, schema2) shouldBe cachedClientResult
 
         //test the getLatestSchemaMetadata method
         val schemaMetadata1 = new SchemaMetadata(1, 1,schema1.toString)
@@ -125,13 +123,13 @@ class RedisSchemaRegistryClientSpec extends AnyFlatSpec with EmbeddedRedis with 
         schemaMetadata1Result.getVersion shouldBe schemaMetadata1.getVersion
         schemaMetadata1Result.getSchema shouldBe schemaMetadata1.getSchema
 
-        redisClient.register(topicName1, new AvroSchema(schema12))
+        redisClient.register(topicName1, schema12)
         val schemaMetadata2Result = redisClient.getLatestSchemaMetadata(topicName1)
         schemaMetadata2Result.getId shouldBe schemaMetadata2.getId
         schemaMetadata2Result.getVersion shouldBe schemaMetadata2.getVersion
         schemaMetadata2Result.getSchema shouldBe schemaMetadata2.getSchema
 
-         //test the getSchemaMetadata method
+        //test the getSchemaMetadata method
         val metadata1 = redisClient.getSchemaMetadata(topicName1, 1)
         metadata1.getId shouldBe schemaMetadata1.getId
         metadata1.getVersion shouldBe schemaMetadata1.getVersion
@@ -145,9 +143,9 @@ class RedisSchemaRegistryClientSpec extends AnyFlatSpec with EmbeddedRedis with 
 
         //test the getVersion method
         Thread.sleep(3000)
-        redisClient.getVersion(topicName1, new AvroSchema(schema1)) shouldBe 1
-        redisClient.getVersion(topicName1, new AvroSchema(schema12)) shouldBe 2
-        redisClient.getVersion(topicName2, new AvroSchema(schema2)) shouldBe 1
+        redisClient.getVersion(topicName1, schema1) shouldBe 1
+        redisClient.getVersion(topicName1, schema12) shouldBe 2
+        redisClient.getVersion(topicName2, schema2) shouldBe 1
 
         //test the deleteSchemaVersion method
         //the latest metadata is in this test -> test the getLatestSchemaMetadata method
@@ -162,7 +160,7 @@ class RedisSchemaRegistryClientSpec extends AnyFlatSpec with EmbeddedRedis with 
 
         intercept[RestClientException] {
           redisClient.getLatestSchemaMetadata(topicName2)
-        }.getMessage shouldBe "Subject 'topicB' not found.; error code: 40401"
+        }.getMessage shouldBe "Subject not found.; error code: 40401"
 
         succeed
       }

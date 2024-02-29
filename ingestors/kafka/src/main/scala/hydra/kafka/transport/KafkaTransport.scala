@@ -58,11 +58,8 @@ class KafkaTransport(producerSettings: Map[String, ProducerSettings[Any, Any]])
       msgCounter.incrementAndGet()
       metrics.saveMetrics(kmd)
 
-    case e: RecordProduceError => {
-        println("Received RecordProduceError: ")
-        println(e.error.getMessage)
-        context.system.eventStream.publish(e)
-      }
+    case e: RecordProduceError =>
+      context.system.eventStream.publish(e)
 
     case p: ProducerInitializationError => context.system.eventStream.publish(p)
   }

@@ -14,6 +14,7 @@ import org.apache.kafka.common.errors.UnknownTopicOrPartitionException
 import org.typelevel.log4cats.Logger
 import hydra.common.config.KafkaConfigUtils._
 import kafka.server.KafkaConfig
+
 /**
  * Internal interface to interact with the KafkaAdminClient from FS2 Kafka.
  * Provides a live version for production usage and a test version for integration testing.
