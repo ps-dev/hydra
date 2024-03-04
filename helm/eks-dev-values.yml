@@ -20,17 +20,20 @@ service:
   annotations: {}
   labels: {}
 
-# ingress:
-#   enabled: true
-#   ingressClassName: alb
-#   labels: {}
-#   hosts:
-#     - dvs.eplur-staging.vnerd.com
-#     - dvs-staging.vnerd.com
-#   tls:
-#     - hosts:
-#         - dvs.eplur-staging.vnerd.com
-#   path: /
+
+ingress:
+  enabled: true
+  ingressClassName: internal
+  annotations: {}
+  labels: {}
+  hosts:
+    - dev-hydra.eplur-staging.vnerd.com
+  tls:
+    - hosts:
+        - dev-hydra.eplur-staging.vnerd.com
+  path: /
+  pathType: Prefix
+
 
 resources:
   limits:
