@@ -45,7 +45,7 @@ stages:
   - publish
   - deploy_dev
   - deploy_staging
-  - deploy_productio
+  - deploy_production
   - notify
 
 build:
