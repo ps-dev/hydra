@@ -4,7 +4,8 @@ import cats.Eval
 import cats.effect.Sync
 import cats.syntax.all._
 import hydra.common.config.KafkaConfigUtils._
-import io.confluent.kafka.schemaregistry.avro.AvroCompatibilityChecker
+import io.confluent.kafka.schemaregistry.CompatibilityChecker
+import io.confluent.kafka.schemaregistry.avro.AvroSchema
 import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException
 import io.confluent.kafka.schemaregistry.client.{CachedSchemaRegistryClient, MockSchemaRegistryClient, SchemaRegistryClient, SchemaRegistryClientConfig}
 import org.apache.avro.{LogicalType, LogicalTypes, Schema}
@@ -18,90 +19,100 @@ import scala.concurrent.duration._
 import scala.util.Try
 
 /**
-  * Internal interface to interact with the SchemaRegistryClient from Confluent.
-  * Abstraction allows pure functional interface for working with underlying Java implementation.
-  * Provides a live version for production usage and a test version for integration testing.
-  * @tparam F - higher kinded type - polymorphic effect type
-  */
+ * Internal interface to interact with the SchemaRegistryClient from Confluent.
+ * Abstraction allows pure functional interface for working with underlying Java implementation.
+ * Provides a live version for production usage and a test version for integration testing.
+ *
+ * @tparam F - higher kinded type - polymorphic effect type
+ */
 trait SchemaRegistry[F[_]] {
 
   import SchemaRegistry._
 
   /**
-    * Adds schema to the configured SchemaRegistry. Registration is idempotent.
-    * Equivalency is determined by taking a hash of the given schema. Any changes to the schema change the hash.
-    * @param subject - subject name for the schema found in SchemaRegistry including the suffix (-key | -value)
-    * @param schema - avro Schema which is to be added to the Schema Registry
-    * @return SchemaId for schema, whether newly created or preexisting
-    */
+   * Adds schema to the configured SchemaRegistry. Registration is idempotent.
+   * Equivalency is determined by taking a hash of the given schema. Any changes to the schema change the hash.
+   *
+   * @param subject - subject name for the schema found in SchemaRegistry including the suffix (-key | -value)
+   * @param schema  - avro Schema which is to be added to the Schema Registry
+   * @return SchemaId for schema, whether newly created or preexisting
+   */
   def registerSchema(subject: String, schema: Schema): F[SchemaId]
 
   /**
-    * Deletes schema from the configured SchemaRegistry. Deletes only the version specified and only one of the
-    * key /value, whichever was specified in the subject suffix.
-    * @param subject - subject name for the schema found in SchemaRegistry including the suffix (-key | -value)
-    * @param version - integer representing the schema version
-    * @return Unit
-    */
+   * Deletes schema from the configured SchemaRegistry. Deletes only the version specified and only one of the
+   * key /value, whichever was specified in the subject suffix.
+   *
+   * @param subject - subject name for the schema found in SchemaRegistry including the suffix (-key | -value)
+   * @param version - integer representing the schema version
+   * @return Unit
+   */
   def deleteSchemaOfVersion(subject: String, version: SchemaVersion): F[Unit]
 
   /**
-    * Deletes the subject from the versionCache, idCache, and schemaCache
-    * of the CachedSchemaRegistryClient
-    * @param subject The subject using -key or -value to delete
-    * @return Unit
-    */
+   * Deletes the subject from the versionCache, idCache, and schemaCache
+   * of the CachedSchemaRegistryClient
+   *
+   * @param subject The subject using -key or -value to delete
+   * @return Unit
+   */
   def deleteSchemaSubject(subject: String): F[Unit]
 
   /**
-    * Retrieves the SchemaVersion if the given subject and schema match an item in SchemaRegistry.
-    * The schema hash must exactly match one of the schemas stored in Schema Registry. All fields must be equal.
-    * If the schema is not found, the error will be reported in the error channel of the higher kinded type (F[_]).
-    * @param subject - subject name for the schema found in SchemaRegistry including the suffix (-key | -value)
-    * @param schema - avro Schema which is expected to be in Schema Registry
-    * @return SchemaVersion
-    */
+   * Retrieves the SchemaVersion if the given subject and schema match an item in SchemaRegistry.
+   * The schema hash must exactly match one of the schemas stored in Schema Registry. All fields must be equal.
+   * If the schema is not found, the error will be reported in the error channel of the higher kinded type (F[_]).
+   *
+   * @param subject - subject name for the schema found in SchemaRegistry including the suffix (-key | -value)
+   * @param schema  - avro Schema which is expected to be in Schema Registry
+   * @return SchemaVersion
+   */
   def getVersion(subject: String, schema: Schema): F[SchemaVersion]
 
   /**
-    * Retrieves all SchemaVersion(s) for a given subject.
-    * @param subject - subject name for the schema found in SchemaRegistry including the suffix (-key | -value)
-    * @return List[SchemaVersion] or List.empty if Subject Not Found
-    */
+   * Retrieves all SchemaVersion(s) for a given subject.
+   *
+   * @param subject - subject name for the schema found in SchemaRegistry including the suffix (-key | -value)
+   * @return List[SchemaVersion] or List.empty if Subject Not Found
+   */
   def getAllVersions(subject: String): F[List[SchemaVersion]]
 
   /**
-    * Retrieves all subjects found in the SchemaRegistry
-    * @return List[String]
-    */
+   * Retrieves all subjects found in the SchemaRegistry
+   *
+   * @return List[String]
+   */
   def getAllSubjects: F[List[String]]
 
   /**
-    * Retrieves the SchemaRegistryClient from the algebra
-    * @return SchemaRegistryClient
-    */
+   * Retrieves the SchemaRegistryClient from the algebra
+   *
+   * @return SchemaRegistryClient
+   */
   def getSchemaRegistryClient: F[SchemaRegistryClient]
 
   /**
-    * Retrieves the latest schema for the given subject name, if exists
-    * @param subject - subject name for the schema found in SchemaRegistry including the suffix (-key | -value)
-    * @return - Optional Schema for the given subject name
-    */
+   * Retrieves the latest schema for the given subject name, if exists
+   *
+   * @param subject - subject name for the schema found in SchemaRegistry including the suffix (-key | -value)
+   * @return - Optional Schema for the given subject name
+   */
   def getLatestSchemaBySubject(subject: String): F[Option[Schema]]
 
   /**
-    * Retrieves schema for the version and subject specified, if exists
-    * @param subject - subject name for the schema found in SchemaRegistry including the suffix (-key | -value)
-    * @param schemaVersion - version number for the schema
-    * @return Optional Schema for the given subject and version combination
-    */
+   * Retrieves schema for the version and subject specified, if exists
+   *
+   * @param subject       - subject name for the schema found in SchemaRegistry including the suffix (-key | -value)
+   * @param schemaVersion - version number for the schema
+   * @return Optional Schema for the given subject and version combination
+   */
   def getSchemaFor(subject: String, schemaVersion: SchemaVersion): F[Option[Schema]]
 
 }
 
 object SchemaRegistry {
 
-  private[registry] implicit class CheckKeySchemaEvolution[F[_]: Sync](schemasF: F[List[Schema]]) {
+  private[registry] implicit class CheckKeySchemaEvolution[F[_] : Sync](schemasF: F[List[Schema]]) {
     def checkKeyEvolution(subject: String, newSchema: Schema): F[List[Schema]] = schemasF.flatTap[Unit] {
       case _ if subject.endsWith("-value") => Sync[F].unit
       case Nil => Sync[F].unit
@@ -118,6 +129,7 @@ object SchemaRegistry {
     RuntimeException(message)
 
   final case class LogicalTypeBaseTypeMismatch(baseType: Schema.Type, logicalType: LogicalType, fieldName: String)
+
   final case class LogicalTypeBaseTypeMismatchErrors(errors: List[LogicalTypeBaseTypeMismatch]) extends
     RuntimeException(
       errors.map(e => s"Field named '${e.fieldName}' contains mismatch in " +
@@ -125,11 +137,12 @@ object SchemaRegistry {
     )
 
   final case class IllegalLogicalTypeChange(originalType: LogicalType, proposedType: LogicalType, fieldName: String)
+
   final case class IllegalLogicalTypeChangeErrors(errors: List[IllegalLogicalTypeChange]) extends
     RuntimeException(
       errors.map(e =>
         s"Changing logical types is not allowed. Field named '${e.fieldName}'s logical type cannot be changed from " +
-        s"logicalType of '${if(e.originalType != null) e.originalType.getName else null}' to logicalType of '${if(e.proposedType != null) e.proposedType.getName else null}'").mkString("\n")
+          s"logicalType of '${if (e.originalType != null) e.originalType.getName else null}' to logicalType of '${if (e.proposedType != null) e.proposedType.getName else null}'").mkString("\n")
     )
 
   type SchemaId = Int
@@ -137,31 +150,34 @@ object SchemaRegistry {
 
 
   private[registry] def validate(newSchema: Schema, oldSchemas: List[Schema]): Boolean = {
-    AvroCompatibilityChecker.FULL_TRANSITIVE_CHECKER.isCompatible(newSchema, oldSchemas.asJava)
+    val errors = CompatibilityChecker.FULL_TRANSITIVE_CHECKER.isCompatible(new AvroSchema(newSchema), oldSchemas.map(new AvroSchema(_)).asJava)
+    errors.isEmpty
   }
 
-  def live[F[_]: Sync: Logger: Sleep](
-      schemaRegistryBaseUrl: String,
-      maxCacheSize: Int,
-      securityConfig: SchemaRegistrySecurityConfig,
-      schemaRegistryClientRetries: Int,
-      schemaRegistryClientRetriesDelay: FiniteDuration
-  ): F[SchemaRegistry[F]] = Sync[F].delay {
-    getFromSchemaRegistryClient(new CachedSchemaRegistryClient(schemaRegistryBaseUrl, maxCacheSize,  securityConfig.toConfigMap.asJava), schemaRegistryClientRetries, schemaRegistryClientRetriesDelay)
+  def live[F[_] : Sync : Logger : Sleep](
+                                          schemaRegistryBaseUrl: String,
+                                          maxCacheSize: Int,
+                                          securityConfig: SchemaRegistrySecurityConfig,
+                                          schemaRegistryClientRetries: Int,
+                                          schemaRegistryClientRetriesDelay: FiniteDuration
+                                        ): F[SchemaRegistry[F]] = Sync[F].delay {
+    getFromSchemaRegistryClient(new CachedSchemaRegistryClient(schemaRegistryBaseUrl, maxCacheSize,
+      securityConfig.toConfigMap.asJava), schemaRegistryClientRetries, schemaRegistryClientRetriesDelay)
   }
 
-  def live[F[_] : Sync: Logger: Sleep](
-      schemaRegistryBaseUrl: String,
-      securityConfig: SchemaRegistrySecurityConfig,
-      redisUrl: String,
-      redisPort: Int,
-      ssl: Boolean,
-      idCacheTtl: Int,
-      schemaCacheTtl: Int,
-      versionCacheTtl: Int,
-      schemaRegistryClientRetries: Int,
-      schemaRegistryClientRetriesDelay: FiniteDuration
-  ): F[SchemaRegistry[F]] = Sync[F].delay {
+  // scalastyle:off parameter.number
+  def live[F[_] : Sync : Logger : Sleep](
+                                          schemaRegistryBaseUrl: String,
+                                          securityConfig: SchemaRegistrySecurityConfig,
+                                          redisUrl: String,
+                                          redisPort: Int,
+                                          ssl: Boolean,
+                                          idCacheTtl: Int,
+                                          schemaCacheTtl: Int,
+                                          versionCacheTtl: Int,
+                                          schemaRegistryClientRetries: Int,
+                                          schemaRegistryClientRetriesDelay: FiniteDuration
+                                        ): F[SchemaRegistry[F]] = Sync[F].delay {
     getFromSchemaRegistryClient(
       new RedisSchemaRegistryClient(
         schemaRegistryBaseUrl,
@@ -176,20 +192,25 @@ object SchemaRegistry {
     )
   }
 
-  def test[F[_]: Sync: Logger: Sleep]: F[SchemaRegistry[F]] = Sync[F].delay {
+  def test[F[_] : Sync : Logger : Sleep]: F[SchemaRegistry[F]] = Sync[F].delay {
     getFromSchemaRegistryClient(new MockSchemaRegistryClient, schemaRegistryClientRetries = 0, schemaRegistryClientRetriesDelay = 1.milliseconds)
   }
 
-  def test[F[_]: Sync: Logger: Sleep](mockedClient: SchemaRegistryClient, schemaRegistryClientRetries: Int = 3, schemaRegistryClientRetriesDelay: FiniteDuration = 500.milliseconds): F[SchemaRegistry[F]] = Sync[F].delay {
+  def test[F[_] : Sync : Logger : Sleep](mockedClient: SchemaRegistryClient, schemaRegistryClientRetries: Int = 3,
+                                         schemaRegistryClientRetriesDelay: FiniteDuration = 500.milliseconds): F[SchemaRegistry[F]] = Sync[F].delay {
     getFromSchemaRegistryClient(mockedClient, schemaRegistryClientRetries, schemaRegistryClientRetriesDelay)
   }
 
-  private def getFromSchemaRegistryClient[F[_]: Sync: Logger: Sleep](schemaRegistryClient: SchemaRegistryClient, schemaRegistryClientRetries: Int, schemaRegistryClientRetriesDelay: FiniteDuration): SchemaRegistry[F] =
+  // scalastyle:off method.length
+  private def getFromSchemaRegistryClient[F[_] : Sync : Logger : Sleep](schemaRegistryClient: SchemaRegistryClient,
+                                                                        schemaRegistryClientRetries: Int,
+                                                                        schemaRegistryClientRetriesDelay: FiniteDuration): SchemaRegistry[F] =
     new SchemaRegistry[F] {
       val retryPolicy = limitRetries(schemaRegistryClientRetries) |+| constantDelay[F](schemaRegistryClientRetriesDelay)
 
       private implicit class SchemaOps(sch: Schema) {
         def fields: List[Schema.Field] = fieldsEval("topLevel", box = false).value
+
         private[SchemaOps] def fieldsEval(fieldName: String, box: Boolean = false): Eval[List[Schema.Field]] = sch.getType match {
           case Schema.Type.RECORD => Eval.defer(sch.getFields.asScala.toList.flatTraverse(nf => nf.schema.fieldsEval(nf.name, box = true)))
           case Schema.Type.UNION => Eval.defer(sch.getTypes.asScala.toList.flatTraverse(_.fieldsEval(fieldName, box = true)))
@@ -202,7 +223,7 @@ object SchemaRegistry {
 
       private def checkTypesMatch(f: Schema.Field, expected: Schema.Type, logicalType: LogicalType): List[LogicalTypeBaseTypeMismatch] = {
         if (f.schema.getType == expected) {
-            List.empty
+          List.empty
         } else {
           List(LogicalTypeBaseTypeMismatch(f.schema.getType, logicalType, f.name))
         }
@@ -225,9 +246,9 @@ object SchemaRegistry {
       }
 
       override def registerSchema(
-          subject: String,
-          schema: Schema
-      ): F[SchemaId] = {
+                                   subject: String,
+                                   schema: Schema
+                                 ): F[SchemaId] = {
         for {
           versions <- getAllVersions(subject)
           schemas <- versions.traverse(getSchemaFor(subject, _)).map(_.flatten).checkKeyEvolution(subject, schema)
@@ -235,25 +256,26 @@ object SchemaRegistry {
           _ <- checkLogicalTypesCompat(schema)
           latest <- getLatestSchemaBySubject(subject)
           schemaVersion <- if (validated) {
-            if(checkForOnlyDocFieldUpdate(schema, latest)) {
+            if (checkForOnlyDocFieldUpdate(schema, latest)) {
               schemaRegistryClient.reset()
             }
             Sync[F].delay(schemaRegistryClient.register(subject, schema))
           } else {
-            Sync[F].raiseError[SchemaVersion](IncompatibleSchemaException("Incompatible Schema Evolution. You may add fields with default fields, or remove fields with default fields."))
+            Sync[F].raiseError[SchemaVersion](
+              IncompatibleSchemaException("Incompatible Schema Evolution. You may add fields with default fields, or remove fields with default fields."))
           }
         } yield schemaVersion
       }
 
       def checkForOnlyDocFieldUpdate(schema: Schema, latest: Option[Schema]): Boolean = {
-        if(latest.isEmpty) {
+        if (latest.isEmpty) {
           false
         } else {
           val realLatest = latest.get
           if (schema != null && schema.equals(realLatest)) {
-            val fieldDoc = schema.getFields.asScala.toList.map {field => field.doc()}
-            val latestDoc = realLatest.getFields.asScala.toList.map {field => field.doc()}
-            if(fieldDoc.diff(latestDoc).nonEmpty) {
+            val fieldDoc = schema.getFields.asScala.toList.map { field => field.doc() }
+            val latestDoc = realLatest.getFields.asScala.toList.map { field => field.doc() }
+            if (fieldDoc.diff(latestDoc).nonEmpty) {
               return true
             }
           }
@@ -262,17 +284,17 @@ object SchemaRegistry {
       }
 
       override def deleteSchemaOfVersion(
-          subject: String,
-          version: SchemaVersion
-      ): F[Unit] =
+                                          subject: String,
+                                          version: SchemaVersion
+                                        ): F[Unit] =
         Sync[F].delay(
           schemaRegistryClient.deleteSchemaVersion(subject, version.toString)
         )
 
       override def getVersion(
-          subject: String,
-          schema: Schema
-      ): F[SchemaVersion] =
+                               subject: String,
+                               schema: Schema
+                             ): F[SchemaVersion] =
         Sync[F].delay {
           schemaRegistryClient.getVersion(subject, schema)
         }.retryingOnAllErrors(retryPolicy, onFailure("getVersion"))

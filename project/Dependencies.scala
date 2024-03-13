@@ -12,16 +12,16 @@ object Dependencies {
   val catsRetryVersion = "2.1.0"
   val catsVersion = "2.4.2"
   val cirisVersion = "1.2.1"
-  val confluentVersion = "5.4.2"
+  val confluentVersion = "6.2.1"
   val fs2KafkaVersion = "1.4.1"
   val jacksonCoreVersion = "2.10.4"
   val jacksonDatabindVersion = "2.10.4"
-  val jodaConvertVersion = "2.2.1"
-  val jodaTimeVersion = "2.10.9"
-  val kafkaVersion = "2.4.1"
+  val jodaConvertVersion = "2.2.3"
+  val jodaTimeVersion = "2.12.5"
+  val kafkaVersion = "2.8.2"
   val kamonPVersion = "2.1.10"
   val kamonVersion = "2.1.10"
-  val log4jVersion = "2.17.1"
+  val log4jVersion = "2.22.1"
   val refinedVersion = "0.9.20"
   val reflectionsVersion = "0.9.12"
   val scalaCacheVersion = "0.28.0"
@@ -72,7 +72,8 @@ object Dependencies {
 
     val retry = "com.softwaremill.retry" %% "retry" % "0.3.3"
 
-    val embeddedKafka = "net.manub" %% "scalatest-embedded-kafka" % "2.0.0" % "test"
+    val embeddedKafka =
+      "io.github.embeddedkafka" %% "embedded-kafka" % "2.8.1" % "test"
 
     lazy val kamon = Seq(
       "io.kamon" %% "kamon-core" % kamonVersion,
@@ -86,13 +87,24 @@ object Dependencies {
       embeddedKafka
     ) ++ kafkaClients
 
-    val confluent: Seq[ModuleID] =
+    val kafkaAvroSerializer: Seq[ModuleID] =
       Seq("io.confluent" % "kafka-avro-serializer" % confluentVersion).map(
         _.excludeAll(
           ExclusionRule(organization = "org.codehaus.jackson"),
-          ExclusionRule(organization = "com.fasterxml.jackson.core")
+          ExclusionRule(organization = "com.fasterxml.jackson.core"),
+          ExclusionRule(organization = "org.apache.kafka")
         )
       )
+
+    val kafkaSchemaRegistry: Seq[ModuleID] = Seq("io.confluent" % "kafka-schema-registry-client" % confluentVersion).map(
+      _.excludeAll(
+        ExclusionRule(organization = "org.scala-lang.modules"),
+        ExclusionRule(organization = "org.apache.kafka", "kafka-clients"),
+        ExclusionRule(organization = "com.fasterxml.jackson.module"),
+        ExclusionRule(organization = "org.scala-lang.modules"),
+        ExclusionRule(organization = "com.typesafe.scala-logging")
+      )
+    )
 
     val awsMskIamAuth = Seq("software.amazon.msk" % "aws-msk-iam-auth" % "1.1.4")
 
@@ -171,12 +183,12 @@ object Dependencies {
       val scalaMock = "org.scalamock" %% "scalamock" % scalaMockVersion % module
       val junit = "junit" % "junit" % "4.13.1" % module
 
-      val embeddedKafka =
-        "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" % "5.4.1" % module
+      val embeddedKafkaSchemaRegistry =
+        "io.github.embeddedkafka" %% "embedded-kafka-schema-registry" %  confluentVersion  % module
 
       val scalatestEmbeddedRedis = "com.github.sebruck" %% "scalatest-embedded-redis" % scalaTestEmbeddedRedisVersion % module
 
-      akkaTest ++ Seq(scalaTest, scalaMock, junit, scalatestEmbeddedRedis, embeddedKafka)
+      akkaTest ++ Seq(scalaTest, scalaMock, junit, scalatestEmbeddedRedis, embeddedKafkaSchemaRegistry)
     }
 
   }
@@ -205,21 +217,23 @@ object Dependencies {
     akka ++ Seq(avro, ciris, refined, enumeratum) ++ cats ++ logging ++ joda ++ testDeps ++ kafkaClients ++ awsMskIamAuth
 
   val avroDeps: Seq[ModuleID] =
-    baseDeps ++ confluent ++ jackson ++ guavacache ++ catsEffect ++ redisCache
+    baseDeps ++ kafkaAvroSerializer ++ jackson ++ guavacache ++ catsEffect ++ redisCache
 
   val coreDeps: Seq[ModuleID] = akka ++ baseDeps ++
     Seq(
       reflections,
       retry
-    ) ++ guavacache ++ confluent ++ kamon ++ redisCache
+    ) ++ guavacache ++ kafkaAvroSerializer ++ kamon ++ redisCache
 
   val ingestDeps: Seq[ModuleID] = coreDeps ++ akkaHttpHal ++ Seq(embeddedKafka, sprayJson)
 
   val kafkaDeps: Seq[ModuleID] = coreDeps ++ Seq(
     akkaKafkaStream,
     refined
-  ) ++ kafka ++ akkaHttpHal ++ vulcan ++ fs2Kafka ++ integrationDeps
+  ) ++ kafka ++ akkaHttpHal ++ vulcan ++ fs2Kafka ++ integrationDeps ++ kafkaSchemaRegistry
 
   val awsAuthDeps: Seq[ModuleID] = awsSdk
+
+  val kafkaSchemaRegistryDep = kafkaSchemaRegistry
 
 }
