@@ -4,14 +4,13 @@ import cats.Eval
 import cats.effect.Sync
 import cats.syntax.all._
 import hydra.common.config.KafkaConfigUtils._
-import io.confluent.kafka.schemaregistry.CompatibilityChecker
-import io.confluent.kafka.schemaregistry.avro.AvroSchema
+import io.confluent.kafka.schemaregistry.avro.AvroCompatibilityChecker
 import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException
-import io.confluent.kafka.schemaregistry.client.{CachedSchemaRegistryClient, MockSchemaRegistryClient, SchemaRegistryClient, SchemaRegistryClientConfig}
+import io.confluent.kafka.schemaregistry.client.{CachedSchemaRegistryClient, MockSchemaRegistryClient, SchemaRegistryClient}
 import org.apache.avro.{LogicalType, LogicalTypes, Schema}
 import org.typelevel.log4cats.Logger
-import retry.syntax.all._
 import retry.RetryPolicies._
+import retry.syntax.all._
 import retry.{RetryDetails, Sleep}
 
 import scala.collection.JavaConverters._
@@ -150,8 +149,7 @@ object SchemaRegistry {
 
 
   private[registry] def validate(newSchema: Schema, oldSchemas: List[Schema]): Boolean = {
-    val errors = CompatibilityChecker.FULL_TRANSITIVE_CHECKER.isCompatible(new AvroSchema(newSchema), oldSchemas.map(new AvroSchema(_)).asJava)
-    errors.isEmpty
+    AvroCompatibilityChecker.FULL_TRANSITIVE_CHECKER.isCompatible(newSchema, oldSchemas.asJava)
   }
 
   def live[F[_] : Sync : Logger : Sleep](
@@ -262,7 +260,8 @@ object SchemaRegistry {
             Sync[F].delay(schemaRegistryClient.register(subject, schema))
           } else {
             Sync[F].raiseError[SchemaVersion](
-              IncompatibleSchemaException("Incompatible Schema Evolution. You may add fields with default fields, or remove fields with default fields."))
+              IncompatibleSchemaException(s"Incompatible Schema Evolution. You may add fields with default fields, or " +
+                s"remove fields with default fields. Subject: $subject and schema is : $schema"))
           }
         } yield schemaVersion
       }
