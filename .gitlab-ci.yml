@@ -50,11 +50,13 @@ stages:
 
 build:
   stage: build
+  cache: []
   script:
     - sbt clean compile test
 
 package:
   stage: package
+  cache: []
   script:
     - sbt universal:packageBin
     - ls ingest/target/universal/*.zip | xargs -I {} unzip {} -d ps-publish
