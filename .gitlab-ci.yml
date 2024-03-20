@@ -126,7 +126,7 @@ deploy_dev:
     needs: ["publish"]
     extends: .helmDeploy
     environment:
-      name: staging
+      name: dev
     before_script:
       - sed -i -e "s/%IMAGE_TAG%/1.0.${CI_PIPELINE_IID}-${CI_COMMIT_SHORT_SHA}/g" $HELM_VALUES_FILE
       - cat $HELM_VALUES_FILE
@@ -159,6 +159,8 @@ deploy_staging:
   stage: deploy_staging
   extends: .saltDeploy
   when: manual
+  environment:
+      name: staging
   before_script:
     - cat $SALT_PILLAR
     - sed -i "s/latest/$BUILD_VERSION/" $SALT_PILLAR
@@ -177,6 +179,8 @@ deploy_production:
   stage: deploy_production
   extends: .saltDeploy
   when: manual
+  environment:
+      name: production
   before_script:
     - cat $SALT_PILLAR
     - sed -i "s/latest/$BUILD_VERSION/" $SALT_PILLAR
