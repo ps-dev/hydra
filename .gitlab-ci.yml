@@ -175,6 +175,16 @@ deploy_staging:
     SALT_PILLAR: $CI_PROJECT_DIR/pillar_overrides.yaml
     SALT_URL: https://saltmaster-stage.vnerd.com:8000
 
+slack:staging:
+  stage: notify
+  extends: .notify-all
+  when: on_success
+  needs: ['deploy_staging']
+  before_script:
+    - echo "Sending notification to slack"
+  variables:
+    ENV: "Staging Cluster"
+
 deploy_production: 
   stage: deploy_production
   extends: .saltDeploy
@@ -195,3 +205,12 @@ deploy_production:
     SALT_PILLAR: $CI_PROJECT_DIR/pillar_overrides.yaml
     SALT_URL: https://saltmaster-production.vnerd.com:8000
 
+slack:production:
+  stage: notify
+  extends: .notify-all
+  when: on_success
+  needs: ['deploy_production']
+  before_script:
+    - echo "Sending notification to slack"
+  variables:
+    ENV: "Production Cluster"
