@@ -53,6 +53,7 @@ stages:
 build:
   stage: build
   cache: []
+  retry: 3
   script:
     - sbt clean compile test
 
