@@ -18,7 +18,7 @@ variables:
   ARTIFACTORY_PATH: ${ARTIFACTORY_ID}/${ARTIFACTORY_ARTIFACT_VERSION}
   ARTIFACTORY_ARTIFACT_URL: ${ARTIFACTORY_REPOSITORY_URL}/${ARTIFACTORY_REPOSITORY}/${ARTIFACTORY_PATH}
   BUILD_VERSION: 1.0.${CI_PIPELINE_IID}
-  BOUNDED_CONTEXT_DEV: adapt-dvs
+  BOUNDED_CONTEXT_DEV: adapt-dvs-dev
   BOUNDED_CONTEXT_STAGING: adapt-dvs
   BOUNDED_CONTEXT_PROD: adapt-dvs
   ENV: ${CI_JOB_STAGE} 
@@ -80,7 +80,6 @@ package:
       -H "Authorization: Bearer ${NPM_TOKEN}" \
       -X PUT ${ARTIFACTORY_ARTIFACT_URL} \
       -T ${ARTIFACTORY_ARTIFACT_VERSION}
-
   artifacts:
     paths:
       - ${ARTIFACT_NAME}-${BUILD_VERSION}.tgz
@@ -140,7 +139,7 @@ deploy_dev:
       - kubectl config use-context deploy
     variables:
       HELM_CHART_NAME: ps-service
-      HELM_DEPLOY_TOKEN: ${HELM_DEPLOY_TOKEN}
+      HELM_DEPLOY_TOKEN: ${HELM_DEV_DEPLOY_TOKEN}
       K8S_CLUSTER_NAME: app-eks.eplur-staging.us-west-2
       HELM_K8S_CLUSTER_URL: https://6C29C0073BB19BEF220B9437E6962AF2.gr7.us-west-2.eks.amazonaws.com
       HELM_TARGET_NAMESPACE: ${BOUNDED_CONTEXT_DEV}
@@ -156,6 +155,7 @@ slack:dev:
     - echo "Sending notification to slack"
   variables:
     ENV: "DEV Cluster"
+    SERVICE_NAME: "dev-hydra"
 
 
 deploy_staging: 
@@ -187,6 +187,7 @@ slack:staging:
     - echo "Sending notification to slack"
   variables:
     ENV: "Staging Cluster"
+    SERVICE_NAME: "staging-hydra-publish"
 
 deploy_production: 
   stage: deploy_production
@@ -217,3 +218,4 @@ slack:production:
     - echo "Sending notification to slack"
   variables:
     ENV: "Production Cluster"
+    SERVICE_NAME: "production-hydra-publish"
