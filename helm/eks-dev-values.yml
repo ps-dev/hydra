@@ -27,10 +27,10 @@ ingress:
   annotations: {}
   labels: {}
   hosts:
-    - dev-hydra.eplur-staging.vnerd.com
+    - hydra-publish-dev.eplur-staging.vnerd.com
   tls:
     - hosts:
-        - dev-hydra.eplur-staging.vnerd.com
+        - hydra-publish-dev.eplur-staging.vnerd.com
   path: /
   pathType: Prefix
 
