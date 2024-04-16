@@ -3,6 +3,9 @@ include:
     file: '/salt-deploy/helper.yml'
   - project: 'pluralsight/experience/gitlab-helpers'
     file: '/helm-deploy/helper.yml'
+  - project: 'pluralsight/Technology/adapt/data-platform/gitlab-fragments/snyk'
+    ref: main
+    file: 'snyk-check.yml'
 
 image: openjdk:8
 
@@ -30,6 +33,11 @@ variables:
     Version: *[[BUILD_VERSION]]*
     [[PIPELINE_LINK]]
   SLACK_USERNAME: 'GITLAB'
+  SNYK_SLACK_CHANNEL: '#dataops-snyk-vulnerability-alerts'
+  SNYK_SLACK_ICON_EMOJI: ":snyk:"
+  SNYK_ORG_ID: "d8094638-7a37-413f-b1b4-ad840fb9e239"
+  SNYK_PROJECT_ID: "d243a0e6-4ced-4efe-83fc-169d03b40cc7"
+  SNYK_PROJECT_URL: "https://app.snyk.io/org/ps-data-services"
 
 before_script:
   - apt-get update -yqq
@@ -43,6 +51,7 @@ before_script:
 
 stages:
   - build
+  - code-analysis
   - package
   - publish
   - deploy_dev
