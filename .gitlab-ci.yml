@@ -51,6 +51,7 @@ before_script:
 
 stages:
   - build
+  - code-analysis
   - package
   - publish
   - deploy_dev
