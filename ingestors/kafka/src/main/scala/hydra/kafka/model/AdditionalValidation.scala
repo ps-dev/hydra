@@ -6,8 +6,14 @@ import hydra.kafka.algebras.MetadataAlgebra.TopicMetadataContainer
 import scala.collection.immutable
 
 sealed trait AdditionalValidation extends EnumEntry
-
+sealed trait MetadataAdditionalValidation extends AdditionalValidation
 sealed trait SchemaAdditionalValidation extends AdditionalValidation
+
+object MetadataAdditionalValidation extends Enum[MetadataAdditionalValidation] {
+  case object replacementTopics extends MetadataAdditionalValidation
+
+  override val values: immutable.IndexedSeq[MetadataAdditionalValidation] = findValues
+}
 
 object SchemaAdditionalValidation extends Enum[SchemaAdditionalValidation] {
 
@@ -19,7 +25,7 @@ object SchemaAdditionalValidation extends Enum[SchemaAdditionalValidation] {
 
 object AdditionalValidation {
   lazy val allValidations: Option[List[AdditionalValidation]] =
-    Some(SchemaAdditionalValidation.values.toList)
+    Some(MetadataAdditionalValidation.values.toList ++ SchemaAdditionalValidation.values.toList)
 
   /**
    * An OLD topic will have its metadata populated.

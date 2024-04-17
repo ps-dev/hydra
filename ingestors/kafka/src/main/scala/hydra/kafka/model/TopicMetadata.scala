@@ -144,6 +144,8 @@ final case class TopicMetadataV2ValueOptionalTagList(
                                          streamType: StreamTypeV2,
                                          deprecated: Boolean,
                                          deprecatedDate: Option[Instant],
+                                         replacementTopics: Option[List[String]],
+                                         previousTopics: Option[List[String]],
                                          dataClassification: DataClassification,
                                          subDataClassification: Option[SubDataClassification],
                                          contact: NonEmptyList[ContactMethod],
@@ -160,6 +162,8 @@ final case class TopicMetadataV2ValueOptionalTagList(
       streamType,
       deprecated,
       deprecatedDate,
+      replacementTopics,
+      previousTopics,
       dataClassification,
       subDataClassification,
       contact,
@@ -179,6 +183,8 @@ final case class TopicMetadataV2Value(
     streamType: StreamTypeV2,
     deprecated: Boolean,
     deprecatedDate: Option[Instant],
+    replacementTopics: Option[List[String]],
+    previousTopics: Option[List[String]],
     dataClassification: DataClassification,
     subDataClassification: Option[SubDataClassification],
     contact: NonEmptyList[ContactMethod],
@@ -195,6 +201,8 @@ final case class TopicMetadataV2Value(
       streamType,
       deprecated,
       deprecatedDate,
+      replacementTopics,
+      previousTopics,
       dataClassification,
       subDataClassification,
       contact,
@@ -303,14 +311,17 @@ object TopicMetadataV2ValueOptionalTagList {
 
   private implicit val additionalValidationCodec: Codec[AdditionalValidation] = Codec.deriveEnum[AdditionalValidation](
     symbols = List(
+      MetadataAdditionalValidation.replacementTopics.entryName,
       SchemaAdditionalValidation.defaultInRequiredField.entryName,
       SchemaAdditionalValidation.timestampMillis.entryName
     ),
     encode = {
+      case MetadataAdditionalValidation.replacementTopics    => MetadataAdditionalValidation.replacementTopics.entryName
       case SchemaAdditionalValidation.defaultInRequiredField => SchemaAdditionalValidation.defaultInRequiredField.entryName
       case SchemaAdditionalValidation.timestampMillis        => SchemaAdditionalValidation.timestampMillis.entryName
     },
     decode = {
+      case "replacementTopics"      => Right(MetadataAdditionalValidation.replacementTopics)
       case "defaultInRequiredField" => Right(SchemaAdditionalValidation.defaultInRequiredField)
       case "timestampMillis"        => Right(SchemaAdditionalValidation.timestampMillis)
       case other                    => Left(AvroError(s"$other is not a ${AdditionalValidation.toString}"))
@@ -326,6 +337,8 @@ object TopicMetadataV2ValueOptionalTagList {
       (field("streamType", _.streamType),
         field("deprecated", _.deprecated),
         field("deprecatedDate", _.deprecatedDate, default = Some(None)),
+        field("replacementTopics", _.replacementTopics, default = Some(None)),
+        field("previousTopics", _.previousTopics, default = Some(None)),
         field("dataClassification", _.dataClassification),
         field("subDataClassification", _.subDataClassification, default = Some(None)),
         field("contact", _.contact),

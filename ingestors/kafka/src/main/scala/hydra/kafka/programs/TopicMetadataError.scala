@@ -2,6 +2,7 @@ package hydra.kafka.programs
 
 import hydra.common.validation.ValidationError
 import hydra.kafka.model.SubDataClassification
+import hydra.kafka.model.TopicMetadataV2Request.Subject
 
 sealed trait TopicMetadataError extends ValidationError
 
@@ -15,5 +16,13 @@ object TopicMetadataError {
       val validValues = s"Valid value is ${if (supportedValues.size == 1) s"'${supportedValues.head}'" else s"one of [${supportedValues.mkString(", ")}]"}."
       s"'$subDataClassification' is not a valid SubDataClassification value for '$dataClassification' DataClassification. $validValues"
     }
+  }
+
+  case class ReplacementTopicsMissingError(topic: String) extends TopicMetadataError {
+    override def message: String = s"Field 'replacementTopics' is required when the topic '$topic' is being deprecated!"
+  }
+
+  case class InvalidTopicFormatError(topic: String) extends TopicMetadataError {
+    override def message: String = s"$topic : " + Subject.invalidFormat
   }
 }

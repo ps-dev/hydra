@@ -50,8 +50,12 @@ final class CreateTopicProgram[F[_]: Bracket[*[_], Throwable]: Sleep: Logger] pr
           schemaRegistry.registerSchema(suffixedSubject, schema) *>
             schemaRegistry.getVersion(suffixedSubject, schema).map {
               newSchemaVersion =>
-                if (previousSchemaVersion.contains(newSchemaVersion)) None
-                else Some(newSchemaVersion)
+                if (previousSchemaVersion.contains(newSchemaVersion)) {
+                  None
+                }
+                else {
+                  Some(newSchemaVersion)
+                }
             }
         }
     }.retryingOnAllErrors(retryPolicy, onFailure("RegisterSchema"))
@@ -88,10 +92,8 @@ final class CreateTopicProgram[F[_]: Bracket[*[_], Throwable]: Sleep: Logger] pr
         case None =>
           kafkaAdmin
             .createTopic(subject.value, topicDetails)
-            .retryingOnAllErrors(retryPolicy, onFailure("CreateTopicResource")) *> Bracket[
-            F,
-            Throwable
-          ].pure(Some(subject))
+            .retryingOnAllErrors(retryPolicy, onFailure("CreateTopicResource")) *>
+            Bracket[F, Throwable].pure(Some(subject))
       }
     Resource
       .makeCase(createTopic)({
@@ -107,7 +109,7 @@ final class CreateTopicProgram[F[_]: Bracket[*[_], Throwable]: Sleep: Logger] pr
                                createTopicRequest: TopicMetadataV2Request,
                              ): F[Unit] = {
     for {
-      _ <- metadataValidator.validate(createTopicRequest)
+      _ <- metadataValidator.validate(createTopicRequest, topicName)
       metadata <- metadataAlgebra.getMetadataFor(topicName)
       createdDate = metadata.map(_.value.createdDate).getOrElse(createTopicRequest.createdDate)
       deprecatedDate = metadata.map(_.value.deprecatedDate).getOrElse(createTopicRequest.deprecatedDate) match {
@@ -130,7 +132,7 @@ final class CreateTopicProgram[F[_]: Bracket[*[_], Throwable]: Sleep: Logger] pr
     } yield ()
   }
 
-  def checkThatTopicExists(topicName: String): F[Unit] =
+  private def checkThatTopicExists(topicName: String): F[Unit] =
     for {
       result <- kafkaAdmin.describeTopic(topicName)
       _ <- eff.fromOption(result, MetadataOnlyTopicDoesNotExist(topicName))
@@ -192,7 +194,7 @@ object CreateTopicProgram {
       v2MetadataTopicName,
       metadataAlgebra,
       KeyAndValueSchemaV2Validator.make(schemaRegistry, metadataAlgebra),
-      new TopicMetadataV2Validator()
+      new TopicMetadataV2Validator(metadataAlgebra)
     )
   }
 

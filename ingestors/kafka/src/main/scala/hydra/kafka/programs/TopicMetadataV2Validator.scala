@@ -3,14 +3,22 @@ package hydra.kafka.programs
 import cats.effect.Sync
 import cats.syntax.all._
 import hydra.common.validation.Validator
+import hydra.common.validation.Validator.ValidationChain
+import hydra.kafka.algebras.MetadataAlgebra
 import hydra.kafka.model.DataClassification._
-import hydra.kafka.model.{DataClassification, SubDataClassification, TopicMetadataV2Request}
+import hydra.kafka.model.TopicMetadataV2Request.Subject
+import hydra.kafka.model._
 
-class TopicMetadataV2Validator[F[_] : Sync] () extends Validator {
+class TopicMetadataV2Validator[F[_] : Sync](metadataAlgebra: MetadataAlgebra[F]) extends Validator {
 
-  def validate(metadataV2Request: TopicMetadataV2Request): F[Unit] =
+  def validate(updateMetadataV2Request: TopicMetadataV2Request, subject: Subject): F[Unit] =
     for {
-      _ <- validateSubDataClassification(metadataV2Request.dataClassification, metadataV2Request.subDataClassification)
+      metadata              <- metadataAlgebra.getMetadataFor(subject)
+      additionalValidations <- AdditionalValidation.validations(metadata).getOrElse(List.empty).pure
+      _                     <- validateSubDataClassification(updateMetadataV2Request.dataClassification, updateMetadataV2Request.subDataClassification)
+      _                     <- validateTopicsFormat(updateMetadataV2Request.replacementTopics)
+      _                     <- validateTopicsFormat(updateMetadataV2Request.previousTopics)
+      _                     <- validateAdditional(additionalValidations, updateMetadataV2Request, subject)
     } yield ()
 
   private def validateSubDataClassification(dataClassification: DataClassification,
@@ -35,4 +43,36 @@ class TopicMetadataV2Validator[F[_] : Sync] () extends Validator {
         Seq.empty
       }
   }
+
+  private def validateTopicsFormat(maybeTopics: Option[List[String]]): F[Unit] = {
+    val validationResults = for {
+      topics <- maybeTopics
+    } yield {
+      topics map { topic =>
+        val isValidTopicFormat = Subject.createValidated(topic).nonEmpty
+        validate(isValidTopicFormat, TopicMetadataError.InvalidTopicFormatError(topic))
+      }
+    }
+    resultOf(validationResults.getOrElse(List(Validator.valid)).pure)
+  }
+
+  private def validateAdditional(additionalValidations: List[AdditionalValidation],
+                                 request: TopicMetadataV2Request,
+                                 subject: Subject): F[Unit] =
+    resultOf((additionalValidations collect {
+      case m: MetadataAdditionalValidation => m
+    } flatMap {
+      case MetadataAdditionalValidation.replacementTopics =>
+        List(validateDeprecatedTopicHasReplacementTopic(request.deprecated, request.replacementTopics, subject.value))
+    }).pure)
+
+  private def validateDeprecatedTopicHasReplacementTopic(deprecated: Boolean, replacementTopics: Option[List[String]], topic: String): ValidationChain = {
+    val hasReplacementTopicsIfDeprecated = if (deprecated) replacementTopics.exists(_.nonEmpty) else true
+    validate(hasReplacementTopicsIfDeprecated, TopicMetadataError.ReplacementTopicsMissingError(topic))
+  }
+}
+
+object TopicMetadataV2Validator {
+  def make[F[_] : Sync](metadataAlgebra: MetadataAlgebra[F]): TopicMetadataV2Validator[F] =
+    new TopicMetadataV2Validator[F](metadataAlgebra)
 }
