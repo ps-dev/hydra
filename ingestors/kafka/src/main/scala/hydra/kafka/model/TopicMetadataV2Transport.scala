@@ -6,6 +6,7 @@ import eu.timepit.refined.api.{Refined, RefinedTypeOps}
 import eu.timepit.refined.boolean._
 import eu.timepit.refined.numeric._
 import eu.timepit.refined.string._
+import hydra.common.validation.AdditionalValidation
 import hydra.kafka.algebras.MetadataAlgebra.TopicMetadataContainer
 import hydra.kafka.model.TopicMetadataV2Request.Subject
 import org.apache.avro.Schema

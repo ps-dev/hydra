@@ -7,11 +7,11 @@ import fs2.kafka.{Header, Headers}
 import hydra.avro.registry.SchemaRegistry
 import hydra.avro.resource.SchemaResourceLoader.SchemaNotFoundException
 import hydra.avro.util.SchemaWrapper
+import hydra.common.validation.{AdditionalValidation, SchemaAdditionalValidation}
 import hydra.core.transport.ValidationStrategy
 import hydra.kafka.algebras.{KafkaClientAlgebra, MetadataAlgebra}
 import hydra.kafka.algebras.KafkaClientAlgebra.PublishResponse
 import hydra.kafka.model.TopicMetadataV2Request.Subject
-import hydra.kafka.model.{AdditionalValidation, SchemaAdditionalValidation}
 import org.apache.avro.Schema
 import org.apache.avro.generic.GenericRecord
 import scalacache._

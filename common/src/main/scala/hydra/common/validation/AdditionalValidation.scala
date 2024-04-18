@@ -1,7 +1,6 @@
-package hydra.kafka.model
+package hydra.common.validation
 
 import enumeratum.{Enum, EnumEntry}
-import hydra.kafka.algebras.MetadataAlgebra.TopicMetadataContainer
 
 import scala.collection.immutable
 

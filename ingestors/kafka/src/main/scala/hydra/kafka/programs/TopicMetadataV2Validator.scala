@@ -2,7 +2,7 @@ package hydra.kafka.programs
 
 import cats.effect.Sync
 import cats.syntax.all._
-import hydra.common.validation.Validator
+import hydra.common.validation.{AdditionalValidation, MetadataAdditionalValidation, Validator}
 import hydra.common.validation.Validator.ValidationChain
 import hydra.kafka.algebras.MetadataAlgebra
 import hydra.kafka.model.DataClassification._

@@ -8,6 +8,7 @@ import cats.syntax.all._
 import cats.{Applicative, ApplicativeError, Monad, MonadError}
 import fs2.kafka.Headers
 import hydra.avro.convert.{ISODateConverter, IsoDate}
+import hydra.common.validation.{AdditionalValidation, MetadataAdditionalValidation, SchemaAdditionalValidation}
 import hydra.core.marshallers._
 import hydra.kafka.model.TopicMetadataV2Request.Subject
 import org.apache.avro.generic.GenericRecord

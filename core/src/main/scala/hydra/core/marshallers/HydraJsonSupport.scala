@@ -175,7 +175,8 @@ case class TopicMetadataRequest(
     contact: String,
     additionalDocumentation: Option[String],
     notes: Option[String],
-    notificationUrl: Option[String]
+    notificationUrl: Option[String],
+    additionalValidations: Option[List[AdditionalValidation]]
 ) {
   def updateDataClassification(dc: String): TopicMetadataRequest = this.copy(dataClassification = dc)
 

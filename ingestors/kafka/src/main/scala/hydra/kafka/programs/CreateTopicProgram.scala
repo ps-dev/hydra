@@ -4,14 +4,15 @@ import cats.effect.{Bracket, ExitCase, Resource, Sync}
 import hydra.avro.registry.SchemaRegistry
 import hydra.avro.registry.SchemaRegistry.SchemaVersion
 import hydra.kafka.algebras.{KafkaAdminAlgebra, KafkaClientAlgebra, MetadataAlgebra}
-import hydra.kafka.model.{AdditionalValidation, SkipValidation, StreamTypeV2, TopicMetadataV2, TopicMetadataV2Key, TopicMetadataV2Request}
+import hydra.kafka.model.{SkipValidation, StreamTypeV2, TopicMetadataV2, TopicMetadataV2Key, TopicMetadataV2Request}
 import hydra.kafka.programs.CreateTopicProgram._
 import hydra.kafka.util.KafkaUtils.TopicDetails
 import org.typelevel.log4cats.Logger
 import org.apache.avro.Schema
 import retry.syntax.all._
-import retry.{RetryDetails, RetryPolicy, _}
+import retry._
 import cats.implicits._
+import hydra.common.validation.AdditionalValidation
 import hydra.kafka.model.TopicMetadataV2Request.Subject
 
 import scala.language.higherKinds

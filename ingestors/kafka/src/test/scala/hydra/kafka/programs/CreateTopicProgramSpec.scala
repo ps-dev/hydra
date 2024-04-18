@@ -14,7 +14,7 @@ import hydra.kafka.algebras.KafkaAdminAlgebra.{Topic, TopicName}
 import hydra.kafka.algebras.KafkaClientAlgebra.{ConsumerGroup, Offset, Partition, PublishError, PublishResponse}
 import hydra.kafka.algebras.MetadataAlgebra.TopicMetadataContainer
 import hydra.kafka.algebras.{KafkaAdminAlgebra, KafkaClientAlgebra, MetadataAlgebra, TestMetadataAlgebra}
-import hydra.kafka.model.AdditionalValidation.allValidations
+import hydra.common.validation.AdditionalValidation.allValidations
 import hydra.kafka.model.ContactMethod.Email
 import hydra.kafka.model.TopicMetadataV2Request.Subject
 import hydra.kafka.model._
@@ -29,6 +29,7 @@ import retry.{RetryPolicies, RetryPolicy}
 import eu.timepit.refined._
 import hydra.common.NotificationsTestSuite
 import hydra.common.alerting.sender.InternalNotificationSender
+import hydra.common.validation.AdditionalValidation
 import hydra.common.validation.ValidationError.ValidationCombinedErrors
 import hydra.kafka.IOSuite
 import hydra.kafka.algebras.RetryableFs2Stream.RetryPolicy.Once

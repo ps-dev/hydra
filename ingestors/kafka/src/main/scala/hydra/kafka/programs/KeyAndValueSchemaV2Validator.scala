@@ -5,12 +5,12 @@ import cats.effect.Sync
 import cats.syntax.all._
 import hydra.avro.convert.IsoDate
 import hydra.avro.registry.SchemaRegistry
-import hydra.kafka.model.{AdditionalValidation, RequiredField, SchemaAdditionalValidation, Schemas, SkipValidation, StreamTypeV2, TopicMetadataV2Request}
+import hydra.kafka.model.{RequiredField, Schemas, SkipValidation, StreamTypeV2, TopicMetadataV2Request}
 import hydra.kafka.model.TopicMetadataV2Request.Subject
 import hydra.kafka.programs.TopicSchemaError._
 import org.apache.avro.{Schema, SchemaBuilder}
 import RequiredFieldStructures._
-import hydra.common.validation.Validator
+import hydra.common.validation.{AdditionalValidation, SchemaAdditionalValidation, Validator}
 import hydra.common.validation.Validator.{ValidationChain, valid}
 import hydra.kafka.algebras.MetadataAlgebra
 import hydra.kafka.model.RequiredField.RequiredField

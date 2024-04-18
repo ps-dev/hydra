@@ -7,6 +7,7 @@ import cats.data._
 import cats.syntax.all._
 import enumeratum.EnumEntry
 import eu.timepit.refined.auto._
+import hydra.common.validation.AdditionalValidation
 import hydra.kafka.model.ContactMethod.{Email, Slack}
 import hydra.kafka.model.TopicMetadataV2Request.{NumPartitions, Subject}
 import hydra.kafka.model._
