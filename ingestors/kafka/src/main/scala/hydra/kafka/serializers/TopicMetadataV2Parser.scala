@@ -7,6 +7,7 @@ import cats.data._
 import cats.syntax.all._
 import enumeratum.EnumEntry
 import eu.timepit.refined.auto._
+import hydra.common.serdes.EnumEntryJsonFormat
 import hydra.common.validation.AdditionalValidation
 import hydra.kafka.model.ContactMethod.{Email, Slack}
 import hydra.kafka.model.TopicMetadataV2Request.{NumPartitions, Subject}
@@ -252,22 +253,6 @@ sealed trait TopicMetadataV2Parser
     
     def write(obj: TopicMetadataV2Request.NumPartitions): JsValue = JsNumber(obj.value)
     
-  }
-
-  class EnumEntryJsonFormat[E <: EnumEntry](values: Seq[E]) extends RootJsonFormat[E] {
-
-    override def write(obj: E): JsValue = JsString(obj.entryName)
-
-    override def read(json: JsValue): E = json match {
-      case s: JsString => values.find(v => v.entryName == s.value).getOrElse(deserializationError(s))
-      case x => deserializationError(x)
-    }
-
-    private def deserializationError(value: JsValue) = {
-      val className = values.headOption.map(_.getClass.getEnclosingClass.getSimpleName).getOrElse("")
-      throw DeserializationException(
-        s"For '$className': Expected a value from enum $values instead of $value")
-    }
   }
 
   class ListEnumEntryJsonFormat[E <: List[EnumEntry]](values: E) extends RootJsonFormat[E] {
