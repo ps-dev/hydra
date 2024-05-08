@@ -12,7 +12,7 @@ import org.apache.avro.Schema
 import retry.syntax.all._
 import retry._
 import cats.implicits._
-import hydra.common.validation.AdditionalValidation
+import hydra.common.validation.{AdditionalValidation, AdditionalValidationUtil}
 import hydra.kafka.model.TopicMetadataV2Request.Subject
 
 import scala.language.higherKinds
@@ -123,9 +123,15 @@ final class CreateTopicProgram[F[_]: Bracket[*[_], Throwable]: Sleep: Logger] pr
             None
           }
       }
+      additionalValidationUtility = new AdditionalValidationUtil(
+        isExistingTopic = metadata.isDefined,
+        currentAdditionalValidations = metadata.flatMap(_.value.additionalValidations))
       message = (TopicMetadataV2Key(topicName),
-        createTopicRequest.copy(createdDate = createdDate, deprecatedDate = deprecatedDate,
-          additionalValidations = AdditionalValidation.validations(metadata)).toValue)
+        createTopicRequest.copy(
+          createdDate = createdDate,
+          deprecatedDate = deprecatedDate,
+          additionalValidations = additionalValidationUtility.pickValidations()
+        ).toValue)
       records <- TopicMetadataV2.encode[F](message._1, Some(message._2), None)
       _ <- kafkaClient
         .publishMessage(records, v2MetadataTopicName.value)

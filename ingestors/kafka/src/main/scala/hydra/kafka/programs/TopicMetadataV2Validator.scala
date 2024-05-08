@@ -2,7 +2,7 @@ package hydra.kafka.programs
 
 import cats.effect.Sync
 import cats.syntax.all._
-import hydra.common.validation.{AdditionalValidation, MetadataAdditionalValidation, Validator}
+import hydra.common.validation.{AdditionalValidation, AdditionalValidationUtil, MetadataAdditionalValidation, Validator}
 import hydra.common.validation.Validator.ValidationChain
 import hydra.kafka.algebras.MetadataAlgebra
 import hydra.kafka.model.DataClassification._
@@ -14,10 +14,13 @@ class TopicMetadataV2Validator[F[_] : Sync](metadataAlgebra: MetadataAlgebra[F])
   def validate(updateMetadataV2Request: TopicMetadataV2Request, subject: Subject): F[Unit] =
     for {
       metadata              <- metadataAlgebra.getMetadataFor(subject)
-      additionalValidations <- AdditionalValidation.validations(metadata).getOrElse(List.empty).pure
       _                     <- validateSubDataClassification(updateMetadataV2Request.dataClassification, updateMetadataV2Request.subDataClassification)
       _                     <- validateTopicsFormat(updateMetadataV2Request.replacementTopics)
       _                     <- validateTopicsFormat(updateMetadataV2Request.previousTopics)
+      additionalValidations <- new AdditionalValidationUtil(
+        isExistingTopic = metadata.isDefined,
+        currentAdditionalValidations = metadata.flatMap(_.value.additionalValidations)
+      ).pickValidations().getOrElse(List.empty).pure
       _                     <- validateAdditional(additionalValidations, updateMetadataV2Request, subject)
     } yield ()
 

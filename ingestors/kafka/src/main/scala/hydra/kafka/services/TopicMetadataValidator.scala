@@ -1,8 +1,10 @@
 package hydra.kafka.services
 
-import hydra.core.marshallers.GenericSchema
+import hydra.common.validation.MetadataAdditionalValidation
+import hydra.core.marshallers.{GenericSchema, TopicMetadataRequest}
+import hydra.kafka.programs.TopicMetadataError
 
-import scala.util.{Failure, Try}
+import scala.util.{Failure, Success, Try}
 
 object TopicMetadataValidator {
 
@@ -16,24 +18,35 @@ object TopicMetadataValidator {
       validFormat
     )
 
-  def validate(gOpt: Option[GenericSchema]): Try[ValidationResponse] = {
+  def validate(metadataRequest: TopicMetadataRequest, schema: GenericSchema): Try[ValidationResponse] =
+    mergeValidationResponses(
+      List(
+        validateSubject(Option(schema)),
+        validateMetadata(metadataRequest, schema.subject),
+        validateTopics(metadataRequest.replacementTopics),
+        validateTopics(metadataRequest.previousTopics)
+      )
+    )
+
+  def validateSubject(gOpt: Option[GenericSchema]): Try[ValidationResponse] = {
     gOpt match {
-      case Some(g) =>
-        subjectValidationFunctions
-          .map(f => f(s"${g.namespace}.${g.name}"))
-          .collect {
-            case r: Invalid => r
-          } match {
-          case respSeq: Seq[ValidationResponse] if respSeq.nonEmpty =>
-            Failure(
-              SchemaValidatorException(respSeq.map(invalid => invalid.reason))
-            )
-          case _ => scala.util.Success(Valid)
-        }
-      case None =>
-        Failure(SchemaValidatorException(SchemaError :: Nil))
+      case Some(g) => validateSubject(s"${g.namespace}.${g.name}")
+      case None    => Failure(ValidatorException(SchemaError :: Nil))
     }
   }
+
+  def validateSubject(subject: String): Try[ValidationResponse] =
+    subjectValidationFunctions
+      .map(f => f(subject))
+      .collect {
+        case r: Invalid => r
+      } match {
+      case respSeq: Seq[ValidationResponse] if respSeq.nonEmpty =>
+        Failure(
+          ValidatorException(respSeq.map(invalid => invalid.reason))
+        )
+      case _ => scala.util.Success(Valid)
+    }
 
   private def topicIsTooLong(topic: String): ValidationResponse = {
     topic match {
@@ -73,6 +86,51 @@ object TopicMetadataValidator {
       case _                               => Valid
     }
   }
+
+  private def validateMetadata(metadataRequest: TopicMetadataRequest, topic: String): Try[ValidationResponse] =
+    validateAdditional(metadataRequest, topic) collect {
+      case i: Invalid => i
+    } match {
+      case respSeq: Seq[ValidationResponse] if respSeq.nonEmpty => Failure(ValidatorException(respSeq.map(_.reason)))
+      case _ => scala.util.Success(Valid)
+    }
+
+  private def validateAdditional(metadataRequest: TopicMetadataRequest, topic: String): List[ValidationResponse] = {
+    val metadataValidations = metadataRequest.additionalValidations map { av =>
+      av collect {
+        case m: MetadataAdditionalValidation => m
+      }
+    }
+
+    metadataValidations.getOrElse(List()) map {
+      case MetadataAdditionalValidation.replacementTopics =>
+        validateDeprecatedTopicHasReplacementTopic(metadataRequest.deprecated.contains(true), metadataRequest.replacementTopics, topic)
+    }
+  }
+
+  def validateDeprecatedTopicHasReplacementTopic(deprecated: Boolean, replacementTopics: Option[List[String]], topic: String): ValidationResponse = {
+    val isDeprecatedWithReplacementTopic = if (deprecated) replacementTopics.exists(_.nonEmpty) else true
+    if (isDeprecatedWithReplacementTopic) {
+      Valid
+    } else {
+      Invalid(TopicMetadataError.ReplacementTopicsMissingError(topic).message)
+    }
+  }
+
+  private def mergeValidationResponses(validationList: List[Try[ValidationResponse]]): Try[ValidationResponse] =
+    validationList collect {
+      case Failure(ValidatorException(failures)) => failures
+    } match {
+      case failures: Seq[Seq[String]] if failures.nonEmpty => Failure(ValidatorException(failures.flatten))
+      case _ => Success(Valid)
+    }
+
+  private def validateTopics(replacementTopics: Option[List[String]]): Try[ValidationResponse] = {
+    replacementTopics match {
+      case Some(rtList) => mergeValidationResponses(rtList.map(x => validateSubject(x)))
+      case None         => Success(Valid)
+    }
+  }
 }
 
 object ErrorMessages {
@@ -100,5 +158,5 @@ case object Valid extends ValidationResponse
 
 case class Invalid(reason: String) extends ValidationResponse
 
-case class SchemaValidatorException(reasons: Seq[String])
+case class ValidatorException(reasons: Seq[String])
     extends RuntimeException

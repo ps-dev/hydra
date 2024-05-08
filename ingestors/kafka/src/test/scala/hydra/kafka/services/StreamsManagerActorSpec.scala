@@ -68,7 +68,7 @@ class StreamsManagerActorSpec
 
   val schema = new Schema.Parser().parse(topicMetadataJson)
 
-  implicit val format = jsonFormat13(TopicMetadata)
+  implicit val format = jsonFormat16(TopicMetadata)
 
   val formatter = ISODateTimeFormat.basicDateTimeNoMillis()
 

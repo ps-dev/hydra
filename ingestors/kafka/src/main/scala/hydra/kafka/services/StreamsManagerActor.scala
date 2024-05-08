@@ -25,6 +25,8 @@ import org.joda.time.format.ISODateTimeFormat
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
+import spray.json._
+import DefaultJsonProtocol._
 
 class StreamsManagerActor(
     bootstrapKafkaConfig: Config,
@@ -163,6 +165,12 @@ object StreamsManagerActor {
             record.get("streamType").toString,
             record.get("derived").toString.toBoolean,
             Try(Option(record.get("deprecated"))).toOption.flatten.map(_.toString.toBoolean),
+            Try(Option(record.get("replacementTopics"))).toOption.flatten map { rt =>
+              rt.toString.parseJson.convertTo[List[String]]
+            },
+            Try(Option(record.get("previousTopics"))).toOption.flatten map { pt =>
+              pt.toString.parseJson.convertTo[List[String]]
+            },
             record.get("dataClassification").toString,
             Try(Option(record.get("subDataClassification"))).toOption.flatten.map(_.toString),
             record.get("contact").toString,
@@ -170,7 +178,8 @@ object StreamsManagerActor {
             Try(Option(record.get("notes"))).toOption.flatten.map(_.toString),
             UUID.fromString(record.get("id").toString),
             formatter.parseDateTime(record.get("createdDate").toString),
-            Try(Option(record.get("notificationUrl"))).toOption.flatten.map(_.toString)
+            Try(Option(record.get("notificationUrl"))).toOption.flatten.map(_.toString),
+            None // Never pick additionalValidations from the request.
           )
         }
         TopicMetadataMessage(msg.key, topicMetadata)

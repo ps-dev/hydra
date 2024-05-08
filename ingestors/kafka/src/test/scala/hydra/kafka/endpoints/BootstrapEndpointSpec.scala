@@ -103,7 +103,7 @@ class BootstrapEndpointSpec
 
   private val bootstrapRoute = new BootstrapEndpoint(system, streamsManagerActor, KafkaConfigUtils.kafkaSecurityEmptyConfig, schemaRegistryEmptySecurityConfig, auth, awsSecurityService).route
 
-  implicit val f = jsonFormat13(TopicMetadata)
+  implicit val f = jsonFormat16(TopicMetadata)
 
   override def beforeAll: Unit = {
     EmbeddedKafka.start()
@@ -120,33 +120,45 @@ class BootstrapEndpointSpec
     )
   }
 
-  def dataClassificationRequest(dataClassification: String, subDataClassification: Option[String] = None): HttpEntity.Strict = HttpEntity(
+  def v1CreateTopicRequest(namespace: String = "exp.assessment",
+                           name: String = "SkillAssessmentTopicsScored",
+                           deprecated: Boolean = false,
+                           replacementTopics: Option[List[String]] = None,
+                           previousTopics: Option[List[String]] = None,
+                           dataClassification: String = "InternalUse",
+                           subDataClassification: Option[String] = None): HttpEntity.Strict = HttpEntity(
     ContentTypes.`application/json`,
     s"""{
-      |	"streamType": "Notification",
-      | "derived": false,
-      |	"dataClassification": "$dataClassification",
-      |	${if (subDataClassification.isDefined) s""""subDataClassification": "${subDataClassification.get}",""" else ""}
-      |	"dataSourceOwner": "BARTON",
-      |	"contact": "slackity slack dont talk back",
-      |	"psDataLake": false,
-      |	"additionalDocumentation": "akka://some/path/here.jpggifyo",
-      |	"notes": "here are some notes topkek",
-      |	"schema": {
-      |	  "namespace": "exp.assessment",
-      |	  "name": "SkillAssessmentTopicsScored",
-      |	  "type": "record",
-      |	  "version": 1,
-      |	  "fields": [
-      |	    {
-      |	      "name": "testField",
-      |	      "type": "string"
-      |	    }
-      |	  ]
-      |	},
-      | "notificationUrl": "notification.url"
-      |}""".stripMargin
+       |	"streamType": "Notification",
+       |  "derived": false,
+       |  "deprecated": $deprecated,
+       |	"dataClassification": "$dataClassification",
+       |  ${if (replacementTopics.nonEmpty) s""""replacementTopics": ${replacementTopics.toJson},""" else ""}
+       |  ${if (previousTopics.nonEmpty) s""""previousTopics": ${previousTopics.toJson},""" else ""}
+       |	${if (subDataClassification.isDefined) s""""subDataClassification": "${subDataClassification.get}",""" else ""}
+       |	"dataSourceOwner": "BARTON",
+       |	"contact": "slackity slack dont talk back",
+       |	"psDataLake": false,
+       |	"additionalDocumentation": "akka://some/path/here.jpggifyo",
+       |	"notes": "here are some notes topkek",
+       |	"schema": {
+       |	  "namespace": "$namespace",
+       |	  "name": "$name",
+       |	  "type": "record",
+       |	  "version": 1,
+       |	  "fields": [
+       |	    {
+       |	      "name": "testField",
+       |	      "type": "string"
+       |	    }
+       |	  ]
+       |	},
+       | "notificationUrl": "notification.url"
+       |}""".stripMargin
   )
+
+  def dataClassificationRequest(dataClassification: String, subDataClassification: Option[String] = None): HttpEntity.Strict =
+    v1CreateTopicRequest(dataClassification = dataClassification, subDataClassification = subDataClassification)
 
   "The bootstrap endpoint" should {
     "list streams" in {
@@ -550,6 +562,71 @@ class BootstrapEndpointSpec
           dataClassification = "Restricted",
           subDataClassification = Some("junk"))) ~> bootstrapRoute ~> check {
         status shouldBe StatusCodes.BadRequest
+      }
+    }
+
+    "v1: reject a request when a topic being deprecated does not have replacementTopics" in {
+      val namespace = "exp.dvs"
+      val name = "v1.test"
+      Post("/streams",
+        v1CreateTopicRequest(namespace, name, deprecated = true)
+      ) ~> bootstrapRoute ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[String] shouldBe s"""["Field 'replacementTopics' is required when the topic '$namespace.$name' is being deprecated!"]"""
+      }
+    }
+
+    "v1: reject a request when a topic being deprecated contains replacementTopics with invalid patterns" in {
+      Post("/streams",
+        v1CreateTopicRequest(deprecated = true, replacementTopics = Some(List("dvs.testing", "invalid.dvs.testing")))
+      ) ~> bootstrapRoute ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[String] shouldBe
+          s"""
+             |[
+             |"Schema must be formatted as <organization>.<product|context|team>[.<version>].<entity> where <entity> is the name and the rest is the namespace of the schema",
+             |"Schema namespace must begin with one of the following organizations: exp | rev | fin | mkg | pnp | sbo | dvs"
+             |]
+             |""".stripMargin.replace("\n", "")
+      }
+    }
+
+    "v1: reject a request when a topic contains previousTopics with invalid patterns" in {
+      Post("/streams",
+        v1CreateTopicRequest(previousTopics = Some(List("dvs.testing", "invalid.dvs.testing")))
+      ) ~> bootstrapRoute ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[String] shouldBe
+          s"""
+             |[
+             |"Schema must be formatted as <organization>.<product|context|team>[.<version>].<entity> where <entity> is the name and the rest is the namespace of the schema",
+             |"Schema namespace must begin with one of the following organizations: exp | rev | fin | mkg | pnp | sbo | dvs"
+             |]
+             |""".stripMargin.replace("\n", "")
+      }
+    }
+
+    "v1: accept a request when a topic being deprecated has valid replacementTopics" in {
+      Post("/streams",
+        v1CreateTopicRequest(deprecated = true, replacementTopics = Some(List("exp.dvs.v2.replacementTopic")))
+      ) ~> bootstrapRoute ~> check {
+        status shouldBe StatusCodes.OK
+      }
+    }
+
+    "v1: create topic with valid replacementTopic" in {
+      Post("/streams",
+        v1CreateTopicRequest(replacementTopics = Some(List("exp.dvs.v2.replacementTopic")))
+      ) ~> bootstrapRoute ~> check {
+        status shouldBe StatusCodes.OK
+      }
+    }
+
+    "v1: create topic with valid previousTopic" in {
+      Post("/streams",
+        v1CreateTopicRequest(previousTopics = Some(List("exp.dvs.v2.previousTopic")))
+      ) ~> bootstrapRoute ~> check {
+        status shouldBe StatusCodes.OK
       }
     }
   }

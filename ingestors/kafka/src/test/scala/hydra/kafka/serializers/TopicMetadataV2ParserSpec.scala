@@ -11,6 +11,7 @@ import org.apache.avro.{Schema, SchemaBuilder}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
 import eu.timepit.refined._
+import hydra.common.serdes.EnumEntryJsonFormat
 import hydra.kafka.model.DataClassification._
 
 import scala.concurrent.duration._

@@ -9,6 +9,7 @@ sealed trait MetadataAdditionalValidation extends AdditionalValidation
 sealed trait SchemaAdditionalValidation extends AdditionalValidation
 
 object MetadataAdditionalValidation extends Enum[MetadataAdditionalValidation] {
+
   case object replacementTopics extends MetadataAdditionalValidation
 
   override val values: immutable.IndexedSeq[MetadataAdditionalValidation] = findValues
@@ -23,29 +24,16 @@ object SchemaAdditionalValidation extends Enum[SchemaAdditionalValidation] {
 }
 
 object AdditionalValidation {
+
   lazy val allValidations: Option[List[AdditionalValidation]] =
     Some(MetadataAdditionalValidation.values.toList ++ SchemaAdditionalValidation.values.toList)
+}
 
-  /**
-   * An OLD topic will have its metadata populated.
-   * Therefore, additionalValidations=None will be picked from the metadata.
-   * And no new additionalValidations will be applied on older topics.
-   *
-   * A NEW topic will not have a metadata object.
-   * Therefore, all existing additionalValidations will be assigned.
-   * Thus, additionalValidations on corresponding fields will be applied.
-   *
-   * Corner case: After this feature has been on STAGE/PROD for sometime and some new additionalValidations are required.
-   * We need not worry about old topics as the value of additionalValidations will remain the same since the topic creation.
-   * New additionalValidations should be applied only on new topics.
-   * Therefore, assigning all the values under AdditionalValidation enum is reasonable.
-   *
-   * @param metadata a metadata object of current topic
-   * @return value of additionalValidations if the topic is already existing(OLD topic) otherwise all enum values under AdditionalValidation(NEW topic)
-   */
-  def validations(metadata: Option[TopicMetadataContainer]): Option[List[AdditionalValidation]] =
-    metadata.map(_.value.additionalValidations).getOrElse(AdditionalValidation.allValidations)
+class AdditionalValidationUtil(isExistingTopic: Boolean, currentAdditionalValidations: Option[List[AdditionalValidation]]) {
 
-  def isPresent(metadata: Option[TopicMetadataContainer], additionalValidation: AdditionalValidation): Boolean =
-    validations(metadata).exists(_.contains(additionalValidation))
+  def pickValidations(): Option[List[AdditionalValidation]] =
+    if (isExistingTopic) currentAdditionalValidations else AdditionalValidation.allValidations
+
+  def isPresent(additionalValidation: AdditionalValidation): Boolean =
+    pickValidations().exists(_.contains(additionalValidation))
 }

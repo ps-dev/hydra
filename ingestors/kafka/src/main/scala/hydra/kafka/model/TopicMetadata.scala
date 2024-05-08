@@ -30,6 +30,8 @@ case class TopicMetadata(
     streamType: String,
     derived: Boolean,
     deprecated: Option[Boolean],
+    replacementTopics: Option[List[String]],
+    previousTopics: Option[List[String]],
     dataClassification: String,
     subDataClassification: Option[String],
     contact: String,
@@ -37,7 +39,8 @@ case class TopicMetadata(
     notes: Option[String],
     id: UUID,
     createdDate: org.joda.time.DateTime,
-    notificationUrl: Option[String]
+    notificationUrl: Option[String],
+    additionalValidations: Option[List[AdditionalValidation]] = None // Never pick additionalValidations from the request.
 )
 
 object TopicMetadataV2 {

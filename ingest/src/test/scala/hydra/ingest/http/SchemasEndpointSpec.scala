@@ -58,6 +58,8 @@ class SchemasEndpointSpec
         "History",
         false,
         Some(false),
+        None,
+        None,
         "Public",
         Some("Public"),
         "test_contact",
@@ -65,7 +67,8 @@ class SchemasEndpointSpec
         Some("test_notes"),
         UUID.randomUUID(),
         org.joda.time.DateTime.now,
-        Some("notification.url")
+        Some("notification.url"),
+        None
       )
   }
 

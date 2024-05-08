@@ -162,7 +162,7 @@ trait HydraJsonSupport extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val additionalValidationFormat: EnumEntryJsonFormat[AdditionalValidation] =
     new EnumEntryJsonFormat[AdditionalValidation](Seq.empty)
 
-  implicit val topicCreationMetadataFormat = jsonFormat11(TopicMetadataRequest)
+  implicit val topicCreationMetadataFormat = jsonFormat13(TopicMetadataRequest)
 
   implicit val genericSchemaFormat = jsonFormat2(GenericSchema)
 
@@ -175,6 +175,8 @@ case class TopicMetadataRequest(
     streamType: StreamType,
     derived: Boolean,
     deprecated: Option[Boolean],
+    replacementTopics: Option[List[String]],
+    previousTopics: Option[List[String]],
     dataClassification: String,
     subDataClassification: Option[String],
     contact: String,
