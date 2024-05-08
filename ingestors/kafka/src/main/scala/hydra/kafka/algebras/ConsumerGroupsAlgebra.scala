@@ -157,11 +157,13 @@ object ConsumerGroupsAlgebra {
       override def getConsumersForTopic(topicName: String): F[TopicConsumers] =
         consumerGroupsStorageFacade.get.flatMap(a => addStateToTopicConsumers(a.getConsumersForTopicName(topicName)))
 
+
       override def getOffsetsForInternalConsumerGroup: F[List[PartitionOffset]] = {
 
         for {
           groupOffsetsFromOffsetStream <- consumerGroupsOffsetFacade.get.map(_.getAllPartitionOffset())
 
+          // TODO: To be optimized
           largestOffsets <- kAA.getLatestOffsets(dvsConsumersTopic.value)
             .map(_.map(k => PartitionOffset
             (
@@ -311,18 +313,15 @@ private object ConsumerGroupsStorageFacade {
 
 private case class ConsumerGroupsOffsetFacade(offsetMap: Map[Partition, Offset]) {
 
-  def addOffset(key: Partition, value: Offset): ConsumerGroupsOffsetFacade = {
-    val res = this.copy(this.offsetMap + (key -> value))
-    println(this.offsetMap)
-    res
-  }
+  def addOffset(key: Partition, value: Offset): ConsumerGroupsOffsetFacade =
+    this.copy(this.offsetMap + (key -> value))
 
-  def getAllPartitionOffset(): Map[Partition, Offset] = {
+  def getAllPartitionOffset(): Map[Partition, Offset] =
     this.offsetMap
-  }
 
   def removeOffset(key: Partition): ConsumerGroupsOffsetFacade =
-      this.copy(this.offsetMap - key)
+    this.copy(this.offsetMap - key)
+
   }
 
   private object ConsumerGroupsOffsetFacade {
