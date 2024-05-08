@@ -33,6 +33,8 @@ trait ConsumerGroupsAlgebra[F[_]] {
 
   def getAllConsumers: F[List[ConsumerTopics]]
 
+  def getOffsetsForInternalConsumerGroup: F[List[PartitionOffset]]
+
   def getAllConsumersByTopic: F[List[TopicConsumers]]
 
   def startConsumer: F[Unit]
@@ -96,6 +98,7 @@ final case class TestConsumerGroupsAlgebra(consumerGroupMap: Map[TopicConsumerKe
 
   override def getUniquePerNodeConsumerGroup: String = "uniquePerNodeConsumerGroup"
 
+  override def getOffsetsForInternalConsumerGroup: IO[List[PartitionOffset]] = ???
 }
 
 object TestConsumerGroupsAlgebra {
@@ -148,10 +151,38 @@ object ConsumerGroupsAlgebra {
 
     for {
       consumerGroupsStorageFacade <- Ref[F].of(ConsumerGroupsStorageFacade.empty)
+      consumerGroupsOffsetFacade <- Ref[F].of(ConsumerGroupsOffsetFacade.empty)
     } yield new ConsumerGroupsAlgebra[F] {
 
       override def getConsumersForTopic(topicName: String): F[TopicConsumers] =
         consumerGroupsStorageFacade.get.flatMap(a => addStateToTopicConsumers(a.getConsumersForTopicName(topicName)))
+
+      override def getOffsetsForInternalConsumerGroup: F[List[PartitionOffset]] = {
+
+        for {
+          groupOffsetsFromOffsetStream <- consumerGroupsOffsetFacade.get.map(_.getAllPartitionOffset())
+
+          largestOffsets <- kAA.getLatestOffsets(dvsConsumersTopic.value)
+            .map(_.map(k => PartitionOffset
+            (
+              k._1.partition,
+              groupOffsetsFromOffsetStream.getOrElse(k._1.partition, 0),
+              k._2.value,
+              -1
+            )).toList)
+
+          offsetsWithLag = largestOffsets
+            .map(
+              k => PartitionOffset
+              (
+                k.partition,
+                k.groupOffset,
+                k.largestOffset,
+                k.largestOffset - k.groupOffset
+              )
+            )
+        }yield offsetsWithLag
+      }
 
       private def addStateToTopicConsumers(topicConsumers: TopicConsumers): F[TopicConsumers] = {
         val detailedF: F[List[Consumer]] = topicConsumers.consumers.traverse { consumer =>
@@ -179,6 +210,7 @@ object ConsumerGroupsAlgebra {
             ConsumerGroupsOffsetConsumer.start(kafkaClientAlgebra, kAA, sra, uniquePerNodeConsumerGroup, consumerOffsetsOffsetsTopicConfig,
               kafkaInternalTopic, dvsConsumersTopic, bootstrapServers, commonConsumerGroup, kafkaClientSecurityConfig)
           }
+          _ <- Concurrent[F].start(consumeOffsetStreamIntoCache(offsetStream, consumerGroupsOffsetFacade))
         } yield ()
       }
 
@@ -233,6 +265,17 @@ object ConsumerGroupsAlgebra {
       .makeRetryableWithNotification(Infinite, "ConsumerGroupsAlgebra")
       .compile.drain
   }
+
+  private def consumeOffsetStreamIntoCache[F[_] : ContextShift : ConcurrentEffect : Timer : Logger](
+                                                                                                          offsetStream: fs2.Stream[F, Either[Throwable, (Partition, Offset)]],
+                                                                                                          consumerGroupsOffsetFacade: Ref[F, ConsumerGroupsOffsetFacade]
+                                                                                                        )(implicit notificationsService: InternalNotificationSender[F]): F[Unit] = {
+
+      offsetStream.evalTap {
+        case Right((partition, offset))  => consumerGroupsOffsetFacade.update(_.addOffset(partition, offset))
+        case _ => Logger[F].error("Error in consumeOffsetStreamIntoCache")
+    }.compile.drain
+  }
 }
 
 private case class ConsumerGroupsStorageFacade(consumerMap: Map[TopicConsumerKey, TopicConsumerValue]) {
@@ -272,6 +315,10 @@ private case class ConsumerGroupsOffsetFacade(offsetMap: Map[Partition, Offset])
     val res = this.copy(this.offsetMap + (key -> value))
     println(this.offsetMap)
     res
+  }
+
+  def getAllPartitionOffset(): Map[Partition, Offset] = {
+    this.offsetMap
   }
 
   def removeOffset(key: Partition): ConsumerGroupsOffsetFacade =

@@ -34,6 +34,18 @@ class ConsumerGroupsEndpoint[F[_]: Futurable](consumerGroupsAlgebra: ConsumerGro
                   addHttpMetric("", StatusCodes.InternalServerError, "/v2/consumer-groups", startTime, method.value, error = Some(exception.getMessage))
                   complete(StatusCodes.InternalServerError, exception.getMessage)
               }
+            } ~ pathPrefix("hydra-internal-topic") {
+              val startTime = Instant.now
+              pathEndOrSingleSlash {
+                onComplete(Futurable[F].unsafeToFuture(consumerGroupsAlgebra.getOffsetsForInternalConsumerGroup)) {
+                  case Success(detailedConsumer) =>
+                    addHttpMetric("hydra-internal-topic", StatusCodes.OK, "/v2/consumer-groups/hydra-internal-topic...", startTime, method.value)
+                    complete(StatusCodes.OK, detailedConsumer)
+                  case Failure(exception) =>
+                    addHttpMetric("hydra-internal-topic", StatusCodes.InternalServerError, "/v2/consumer-groups/hydra-internal-topic...", startTime, method.value, error = Some(exception.getMessage))
+                    complete(StatusCodes.InternalServerError, exception.getMessage)
+                }
+              }
             } ~ pathPrefix(Segment) { consumerGroupName =>
               val startTime = Instant.now
               pathEndOrSingleSlash {
