@@ -33,7 +33,7 @@ trait ConsumerGroupsAlgebra[F[_]] {
 
   def getAllConsumers: F[List[ConsumerTopics]]
 
-  def getOffsetsForInternalConsumerGroup: F[List[PartitionOffset]]
+  def getOffsetsForInternalCGTopic: F[List[PartitionOffset]]
 
   def getAllConsumersByTopic: F[List[TopicConsumers]]
 
@@ -98,7 +98,7 @@ final case class TestConsumerGroupsAlgebra(consumerGroupMap: Map[TopicConsumerKe
 
   override def getUniquePerNodeConsumerGroup: String = "uniquePerNodeConsumerGroup"
 
-  override def getOffsetsForInternalConsumerGroup: IO[List[PartitionOffset]] = ???
+  override def getOffsetsForInternalCGTopic: IO[List[PartitionOffset]] = ???
 }
 
 object TestConsumerGroupsAlgebra {
@@ -157,33 +157,28 @@ object ConsumerGroupsAlgebra {
       override def getConsumersForTopic(topicName: String): F[TopicConsumers] =
         consumerGroupsStorageFacade.get.flatMap(a => addStateToTopicConsumers(a.getConsumersForTopicName(topicName)))
 
+      override def getOffsetsForInternalCGTopic: F[List[PartitionOffset]] = {
 
-      override def getOffsetsForInternalConsumerGroup: F[List[PartitionOffset]] = {
+        def getValueFromOffsetMap(partition: Int, offsetMap: Map[Partition, Offset]): Long =
+          offsetMap.get(partition) match {
+            case Some(value) => value
+            case _ => -1
+          }
 
         for {
-          groupOffsetsFromOffsetStream <- consumerGroupsOffsetFacade.get.map(_.getAllPartitionOffset())
+          groupOffsetMap <- consumerGroupsOffsetFacade.get.map(_.getAllPartitionOffset())
+          partitionOffsetMapWithLag <- kAA.getLatestOffsets(dvsConsumersTopic.value)
+            .map( _.toList
+              .filter( _._2.value > 0.toLong)
+              .map( latestOffset => PartitionOffset(
+                latestOffset._1.partition,
+                getValueFromOffsetMap(latestOffset._1.partition, groupOffsetMap),
+                latestOffset._2.value - 1.toLong,
+                latestOffset._2.value - getValueFromOffsetMap(latestOffset._1.partition, groupOffsetMap) - 1.toLong
+              )).toList)
 
-          // TODO: To be optimized
-          largestOffsets <- kAA.getLatestOffsets(dvsConsumersTopic.value)
-            .map(_.map(k => PartitionOffset
-            (
-              k._1.partition,
-              groupOffsetsFromOffsetStream.getOrElse(k._1.partition, 0),
-              k._2.value,
-              -1
-            )).toList)
+        } yield partitionOffsetMapWithLag
 
-          offsetsWithLag = largestOffsets
-            .map(
-              k => PartitionOffset
-              (
-                k.partition,
-                k.groupOffset,
-                k.largestOffset,
-                k.largestOffset - k.groupOffset
-              )
-            )
-        }yield offsetsWithLag
       }
 
       private def addStateToTopicConsumers(topicConsumers: TopicConsumers): F[TopicConsumers] = {

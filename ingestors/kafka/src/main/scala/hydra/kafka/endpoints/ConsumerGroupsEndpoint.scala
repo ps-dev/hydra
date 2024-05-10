@@ -37,7 +37,7 @@ class ConsumerGroupsEndpoint[F[_]: Futurable](consumerGroupsAlgebra: ConsumerGro
             } ~ pathPrefix("hydra-internal-topic") {
               val startTime = Instant.now
               pathEndOrSingleSlash {
-                onComplete(Futurable[F].unsafeToFuture(consumerGroupsAlgebra.getOffsetsForInternalConsumerGroup)) {
+                onComplete(Futurable[F].unsafeToFuture(consumerGroupsAlgebra.getOffsetsForInternalCGTopic)) {
                   case Success(detailedConsumer) =>
                     addHttpMetric("hydra-internal-topic", StatusCodes.OK, "/v2/consumer-groups/hydra-internal-topic", startTime, method.value)
                     complete(StatusCodes.OK, detailedConsumer)
