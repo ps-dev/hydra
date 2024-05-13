@@ -5,7 +5,7 @@ import spray.json.{RootJsonFormat, _}
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import hydra.core.transport.AckStrategy
 import hydra.kafka.algebras.{ConsumerGroupsAlgebra, KafkaAdminAlgebra}
-import hydra.kafka.algebras.ConsumerGroupsAlgebra.{ConsumerTopics, DetailedConsumerGroup, DetailedTopicConsumers, PartitionOffset, TopicConsumers}
+import hydra.kafka.algebras.ConsumerGroupsAlgebra.{ConsumerTopics, DetailedConsumerGroup, DetailedTopicConsumers, PartitionOffset, TopicConsumers, TotalOffsetsWithLag}
 import hydra.kafka.algebras.KafkaAdminAlgebra.{LagOffsets, Offset, TopicAndPartition}
 import hydra.kafka.serializers.TopicMetadataV2Parser.IntentionallyUnimplemented
 
@@ -54,6 +54,18 @@ trait ConsumerGroupMarshallers extends DefaultJsonProtocol with SprayJsonSupport
     ).flatten.toMap)
 
     override def read(json: JsValue): ConsumerGroupsAlgebra.Consumer = throw IntentionallyUnimplemented
+  }
+
+  implicit object totalOffsetsWithLag extends RootJsonFormat[TotalOffsetsWithLag] {
+    override def write(totalOffsetsWithLag: TotalOffsetsWithLag): JsValue = JsObject(List(
+      Some("largestOffset" -> JsNumber(totalOffsetsWithLag.largestOffset)),
+      Some("groupOffset" -> JsNumber(totalOffsetsWithLag.groupOffset)),
+      Some("lag" -> JsNumber(totalOffsetsWithLag.lag)),
+      Some("lagPercentage" -> DoubleJsonFormat.write(totalOffsetsWithLag.lagPercentage)),
+      Some("offsetInformation" -> JsArray(totalOffsetsWithLag.offsetMap.sortBy(_.partition).map(partitionOffset.write).toVector))
+    ).flatten.toMap)
+
+    override def read(json: JsValue): TotalOffsetsWithLag = throw IntentionallyUnimplemented
   }
 
   implicit val consumerTopicsFormat: RootJsonFormat[ConsumerTopics] = jsonFormat2(ConsumerTopics)
