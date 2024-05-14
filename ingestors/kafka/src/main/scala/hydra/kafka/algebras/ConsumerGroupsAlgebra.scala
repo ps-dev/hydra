@@ -33,7 +33,7 @@ trait ConsumerGroupsAlgebra[F[_]] {
 
   def getAllConsumers: F[List[ConsumerTopics]]
 
-  def getOffsetsForInternalCGTopic: F[TotalOffsetsWithLag]
+  def getOffsetsForInternalCGTopic: F[PartitionOffsetsWithTotalLag]
 
   def getAllConsumersByTopic: F[List[TopicConsumers]]
 
@@ -98,7 +98,7 @@ final case class TestConsumerGroupsAlgebra(consumerGroupMap: Map[TopicConsumerKe
 
   override def getUniquePerNodeConsumerGroup: String = "uniquePerNodeConsumerGroup"
 
-  override def getOffsetsForInternalCGTopic: IO[TotalOffsetsWithLag] = ???
+  override def getOffsetsForInternalCGTopic: IO[PartitionOffsetsWithTotalLag] = ???
 }
 
 object TestConsumerGroupsAlgebra {
@@ -109,7 +109,8 @@ object ConsumerGroupsAlgebra {
 
   type PartitionOffsetMap = Map[Int, Long]
 
-  final case class TotalOffsetsWithLag(largestOffset: Long, groupOffset: Long, lag: Long, lagPercentage: Double, offsetMap: List[PartitionOffset])
+  final case class PartitionOffsetsWithTotalLag(totalLargestOffset: Long, totalGroupOffset: Long, totalLag: Long,
+                                       lagPercentage: Double, partitionOffsets: List[PartitionOffset])
 
   final case class PartitionOffset(partition: Int, groupOffset: Long, largestOffset: Long, partitionLag: Long)
 
@@ -159,12 +160,12 @@ object ConsumerGroupsAlgebra {
       override def getConsumersForTopic(topicName: String): F[TopicConsumers] =
         consumerGroupsStorageFacade.get.flatMap(a => addStateToTopicConsumers(a.getConsumersForTopicName(topicName)))
 
-      override def getOffsetsForInternalCGTopic: F[TotalOffsetsWithLag] = {
+      override def getOffsetsForInternalCGTopic: F[PartitionOffsetsWithTotalLag] = {
 
         def getValueFromOffsetMap(partition: Int, offsetMap: Map[Partition, Offset]): Long =
           offsetMap.get(partition) match {
-            case Some(value) => value
-            case _ => -1
+            case Some(value) => value + 1.toLong
+            case _ => 0
           }
 
         for {
@@ -176,8 +177,8 @@ object ConsumerGroupsAlgebra {
               .map(latestOffset => PartitionOffset(
                 latestOffset._1.partition,
                 getValueFromOffsetMap(latestOffset._1.partition, groupOffsetMap),
-                latestOffset._2.value - 1.toLong,
-                latestOffset._2.value - getValueFromOffsetMap(latestOffset._1.partition, groupOffsetMap) - 1.toLong
+                latestOffset._2.value,
+                latestOffset._2.value - getValueFromOffsetMap(latestOffset._1.partition, groupOffsetMap)
               )).toList)
 
           (totalLargestOffset, totalGroupOffset) =
@@ -187,7 +188,7 @@ object ConsumerGroupsAlgebra {
 
           lagPercentage: Double = (totalLag.toDouble / totalLargestOffset.toDouble) * 100
 
-        } yield TotalOffsetsWithLag(totalLargestOffset, totalGroupOffset, totalLag, lagPercentage, partitionOffsetMapWithLag)
+        } yield PartitionOffsetsWithTotalLag(totalLargestOffset, totalGroupOffset, totalLag, lagPercentage, partitionOffsetMapWithLag)
 
       }
 
