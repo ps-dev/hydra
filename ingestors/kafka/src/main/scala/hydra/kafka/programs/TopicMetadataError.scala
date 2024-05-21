@@ -23,6 +23,14 @@ object TopicMetadataError {
   }
 
   case class InvalidTopicFormatError(topic: String) extends TopicMetadataError {
-    override def message: String = s"$topic : " + Subject.invalidFormat
+    override def message: String = s"$topic : ${Subject.invalidFormat}"
+  }
+
+  case class TopicDoesNotExist(topic: String) extends TopicMetadataError {
+    override def message: String = s"Topic '$topic' does not exist!"
+  }
+
+  case class PreviousTopicsCannotPointItself(topic: String) extends TopicMetadataError {
+    override def message: String = s"Previous topics cannot point to itself, '$topic'!"
   }
 }

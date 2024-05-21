@@ -279,8 +279,7 @@ class TopicMetadataEndpointSpec
 
     val validRequest = """{
                          |    "streamType": "Event",
-                         |    "deprecated": true,
-                         |    "replacementTopics": ["dvs.test.subject.new"],
+                         |    "deprecated": false,
                          |    "dataClassification": "InternalUse",
                          |    "subDataClassification": "InternalUseOnly",
                          |    "contact": {

@@ -5,10 +5,12 @@ import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import cats.data.NonEmptyList
 import cats.effect.{Concurrent, ContextShift, IO, Timer}
+import cats.implicits._
 import hydra.avro.registry.SchemaRegistry
 import hydra.avro.registry.SchemaRegistry.{SchemaId, SchemaVersion}
 import hydra.common.NotificationsTestSuite
 import hydra.common.alerting.sender.InternalNotificationSender
+import hydra.common.validation.ValidationError._
 import hydra.core.http.CorsSupport
 import hydra.core.http.security.entity.AwsConfig
 import hydra.core.http.security.{AccessControlService, AwsSecurityService}
@@ -73,7 +75,9 @@ final class BootstrapEndpointV2Spec
     )
   }
 
-  private val testCreateTopicProgram: IO[BootstrapEndpointV2[IO]] = {
+  private val testCreateTopicProgram = testCreateTopic()
+
+  private def testCreateTopic(preExistingTopics: List[String] = List.empty): IO[BootstrapEndpointV2[IO]] = {
     implicit val notificationSenderMock: InternalNotificationSender[IO] = getInternalNotificationSenderMock[IO]
     for {
       s <- SchemaRegistry.test[IO]
@@ -82,6 +86,7 @@ final class BootstrapEndpointV2Spec
       m <- MetadataAlgebra.make(Subject.createValidated("_metadata.topic.name").get, "bootstrap.consumer.group", kc, s, true, Once)
       t <- TagsAlgebra.make[IO]("_hydra.tags-topic","_hydra.tags-consumer", kc)
       _ <- t.createOrUpdateTag(HydraTag("DVS tag", "DVS"))
+      _ <- preExistingTopics.traverse(t => k.createTopic(t,TopicDetails(1,1,1)))
     } yield getTestCreateTopicProgram(s, k, kc, m, t)
   }
 
@@ -363,61 +368,137 @@ final class BootstrapEndpointV2Spec
     }
 
     "reject a request when a topic being deprecated does not have replacementTopics" in {
-      val deprecateWithoutReplacementTopicsRequest = topicMetadataV2Request.copy(deprecated = true).toJson.compactPrint
-
-      testFailure(deprecateWithoutReplacementTopicsRequest, error = TopicMetadataError.ReplacementTopicsMissingError("dvs.testing").message)
+      val request = topicMetadataV2Request.copy(deprecated = true).toJson.compactPrint
+      testFailure(request, error = TopicMetadataError.ReplacementTopicsMissingError("dvs.testing").message)
     }
 
-    "reject a request when a topic being deprecated contains replacementTopics with invalid patterns" in {
-      val deprecateWithInvalidReplacementTopicsRequest = topicMetadataV2Request.copy(
+    "reject a request when a topic being deprecated contains replacementTopics with all non-existing topics" in {
+      val replacementTopics = List("dvs.test.not.existing", "invalid.dvs.testing")
+      val request = topicMetadataV2Request.copy(
         deprecated = true,
-        replacementTopics = Some(List("dvs.testing", "invalid.dvs.testing"))
+        replacementTopics = Some(replacementTopics)
       ).toJson.compactPrint
 
-      testFailure(deprecateWithInvalidReplacementTopicsRequest, error = TopicMetadataError.InvalidTopicFormatError("invalid.dvs.testing").message)
+      testFailure(
+        request,
+        error = ValidationCombinedErrors(List(
+          TopicMetadataError.TopicDoesNotExist(replacementTopics.head).message,
+          TopicMetadataError.TopicDoesNotExist(replacementTopics(1)).message
+        )).message
+      )
     }
 
-    "reject a request when a topic contains previousTopics with invalid patterns" in {
-      val deprecateWithInvalidPreviousTopicsRequest = topicMetadataV2Request.copy(
-        previousTopics = Some(List("dvs.testing", "invalid.dvs.testing"))
-      ).toJson.compactPrint
-
-      testFailure(deprecateWithInvalidPreviousTopicsRequest, error = TopicMetadataError.InvalidTopicFormatError("invalid.dvs.testing").message)
-    }
-
-    "accept a request when a topic being deprecated has valid replacementTopics" in {
-      val deprecateWithValidReplacementTopicsRequest = topicMetadataV2Request.copy(
+    "reject a request when a topic being deprecated contains replacementTopics with some non-existing topics" in {
+      val replacementTopics = List("dvs.test.existing", "invalid.dvs.testing")
+      val request = topicMetadataV2Request.copy(
         deprecated = true,
-        replacementTopics = Some(List("dvs.testing.replacement"))
+        replacementTopics = Some(replacementTopics)
       ).toJson.compactPrint
 
-      testSuccess(deprecateWithValidReplacementTopicsRequest)
+      testFailure(
+        request,
+        error = ValidationCombinedErrors(List(
+          TopicMetadataError.TopicDoesNotExist(replacementTopics(1)).message
+        )).message,
+        preExistingTopics = List(replacementTopics.head)
+      )
     }
 
-    "create topic with valid replacementTopics" in {
-      val replacementTopicsRequest = topicMetadataV2Request.copy(
-        previousTopics = Some(List("dvs.testing.replacement"))
+    "reject a request when a new topic being created is deprecated pointing to itself in replacementTopics" in {
+      val currentTopic = "dvs.testing.xyz"
+      val request = topicMetadataV2Request.copy(
+        deprecated = true,
+        replacementTopics = Some(List(currentTopic))
       ).toJson.compactPrint
 
-      testSuccess(replacementTopicsRequest)
+      testFailure(request, TopicMetadataError.TopicDoesNotExist(currentTopic).message)
     }
 
-    "create topic with valid previousTopics" in {
-      val previousTopicsRequest = topicMetadataV2Request.copy(
-        previousTopics = Some(List("dvs.testing.previous"))
+    "accept a request when a topic being deprecated points to itself in replacementTopics" in {
+      val currentTopic = "dvs.testing.xyz"
+      val request = topicMetadataV2Request.copy(
+        deprecated = true,
+        replacementTopics = Some(List(currentTopic))
       ).toJson.compactPrint
 
-      testSuccess(previousTopicsRequest)
+      testSuccess(request, currentTopicName = Some(currentTopic), preExistingTopics = List(currentTopic))
     }
 
-    def testFailure(request: String, error: String) = testRequest(request, reject = true, errorMessage = Some(error))
+    "accept a request when a topic being deprecated contains replacementTopics with all existing topics" in {
+      val replacementTopics = List("dvs.test.existing", "dvs.test.valid")
+      val request = topicMetadataV2Request.copy(
+        deprecated = true,
+        replacementTopics = Some(replacementTopics)
+      ).toJson.compactPrint
 
-    def testSuccess(request: String) = testRequest(request)
+      testSuccess(request, preExistingTopics = replacementTopics)
+    }
 
-    def testRequest(request: String, reject: Boolean = false, errorMessage: Option[String] = None) =
-      testCreateTopicProgram
+    "reject a request when previousTopics contains all non-existing topics" in {
+      val previousTopics = List("dvs.test.not.existing", "invalid.dvs.testing")
+      val request = topicMetadataV2Request.copy(previousTopics = Some(previousTopics)).toJson.compactPrint
+
+      testFailure(
+        request,
+        error = ValidationCombinedErrors(List(
+          TopicMetadataError.TopicDoesNotExist(previousTopics.head).message,
+          TopicMetadataError.TopicDoesNotExist(previousTopics(1)).message
+        )).message
+      )
+    }
+
+    "reject a request when previousTopics contains some non-existing topics" in {
+      val previousTopics = List("dvs.test.existing", "dvs.test.not.existing")
+      val request = topicMetadataV2Request.copy(previousTopics = Some(previousTopics)).toJson.compactPrint
+
+      testFailure(
+        request,
+        error = ValidationCombinedErrors(List(
+          TopicMetadataError.TopicDoesNotExist(previousTopics(1)).message
+        )).message,
+        preExistingTopics = List(previousTopics.head)
+      )
+    }
+
+    "reject a request when previousTopics contains itself" in {
+      val currentTopic = "dvs.testing"
+      val previousTopics = List("dvs.test.existing", currentTopic)
+      val request = topicMetadataV2Request.copy(previousTopics = Some(previousTopics)).toJson.compactPrint
+
+      testFailure(
+        request,
+        error = ValidationCombinedErrors(List(
+          TopicMetadataError.PreviousTopicsCannotPointItself(previousTopics(1)).message
+        )).message,
+        preExistingTopics = previousTopics,
+        currentTopicName = Some(currentTopic)
+      )
+    }
+
+    "accept a request when all topics in previousTopics exist" in {
+      val previousTopics = List("dvs.test.existing", "dvs.test.valid")
+      val request = topicMetadataV2Request.copy(
+        deprecated = true,
+        replacementTopics = Some(previousTopics)
+      ).toJson.compactPrint
+
+      testSuccess(request, preExistingTopics = previousTopics)
+    }
+
+    def testFailure(request: String, error: String, preExistingTopics: List[String] = List.empty, currentTopicName: Option[String] = None) =
+      testRequest(request, reject = true, errorMessage = Some(error), preExistingTopics = preExistingTopics, currentTopicName = currentTopicName)
+
+    def testSuccess(request: String, preExistingTopics: List[String] = List.empty, currentTopicName: Option[String] = None) =
+      testRequest(request, preExistingTopics = preExistingTopics, currentTopicName = currentTopicName)
+
+    def testRequest(request: String,
+                    reject: Boolean = false,
+                    errorMessage: Option[String] = None,
+                    preExistingTopics: List[String] = List.empty,
+                    currentTopicName: Option[String] = None) =
+      testCreateTopic(preExistingTopics)
         .map { bootstrapEndpoint =>
-          Put("/v2/topics/dvs.testing", HttpEntity(ContentTypes.`application/json`, request)) ~> Route.seal(
+          Put(s"/v2/topics/${currentTopicName.getOrElse("dvs.testing")}", HttpEntity(ContentTypes.`application/json`, request)) ~> Route.seal(
             bootstrapEndpoint.route
           ) ~> check {
             if (reject) {

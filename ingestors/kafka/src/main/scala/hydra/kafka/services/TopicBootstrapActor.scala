@@ -111,7 +111,7 @@ class TopicBootstrapActor(
                 case None                => (request.copy(additionalValidations = Some(MetadataAdditionalValidation.values.toList)), None)
               }
 
-              TopicMetadataValidator.validate(topicMetadataRequest, schema) match {
+              TopicMetadataValidator.validate(topicMetadataRequest, schema, metadataResponse.metadata) match {
                 case Success(_) =>
                   executeEndpoint(topicMetadataRequest, metadata)
                 case Failure(ex: ValidatorException) =>

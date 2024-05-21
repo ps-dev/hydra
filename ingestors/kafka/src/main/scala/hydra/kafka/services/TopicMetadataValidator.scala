@@ -2,6 +2,7 @@ package hydra.kafka.services
 
 import hydra.common.validation.MetadataAdditionalValidation
 import hydra.core.marshallers.{GenericSchema, TopicMetadataRequest}
+import hydra.kafka.model.TopicMetadata
 import hydra.kafka.programs.TopicMetadataError
 
 import scala.util.{Failure, Success, Try}
@@ -18,13 +19,14 @@ object TopicMetadataValidator {
       validFormat
     )
 
-  def validate(metadataRequest: TopicMetadataRequest, schema: GenericSchema): Try[ValidationResponse] =
+  def validate(metadataRequest: TopicMetadataRequest, schema: GenericSchema, metadataMap: Map[String, TopicMetadata]): Try[ValidationResponse] =
     mergeValidationResponses(
       List(
         validateSubject(Option(schema)),
-        validateMetadata(metadataRequest, schema.subject),
-        validateTopics(metadataRequest.replacementTopics),
-        validateTopics(metadataRequest.previousTopics)
+        validateTopicsExist(metadataRequest.replacementTopics, metadataMap),
+        validateTopicsExist(metadataRequest.previousTopics, metadataMap),
+        validatePreviousTopicsCannotPointItself(metadataRequest.previousTopics, schema.subject),
+        validateAdditional(metadataRequest, schema.subject),
       )
     )
 
@@ -87,24 +89,19 @@ object TopicMetadataValidator {
     }
   }
 
-  private def validateMetadata(metadataRequest: TopicMetadataRequest, topic: String): Try[ValidationResponse] =
-    validateAdditional(metadataRequest, topic) collect {
-      case i: Invalid => i
-    } match {
-      case respSeq: Seq[ValidationResponse] if respSeq.nonEmpty => Failure(ValidatorException(respSeq.map(_.reason)))
-      case _ => scala.util.Success(Valid)
-    }
-
-  private def validateAdditional(metadataRequest: TopicMetadataRequest, topic: String): List[ValidationResponse] = {
-    val metadataValidations = metadataRequest.additionalValidations map { av =>
-      av collect {
-        case m: MetadataAdditionalValidation => m
-      }
-    }
-
-    metadataValidations.getOrElse(List()) map {
+  private def validateAdditional(metadataRequest: TopicMetadataRequest, topic: String): Try[ValidationResponse] = {
+    val invalidReasons = metadataRequest.additionalValidations.getOrElse(Nil).collect {
       case MetadataAdditionalValidation.replacementTopics =>
         validateDeprecatedTopicHasReplacementTopic(metadataRequest.deprecated.contains(true), metadataRequest.replacementTopics, topic)
+    }.collect {
+      case Invalid(reason) => reason
+    }
+
+    if (invalidReasons.nonEmpty) {
+      Failure(ValidatorException(invalidReasons))
+    }
+    else {
+      Success(Valid)
     }
   }
 
@@ -125,10 +122,25 @@ object TopicMetadataValidator {
       case _ => Success(Valid)
     }
 
-  private def validateTopics(replacementTopics: Option[List[String]]): Try[ValidationResponse] = {
-    replacementTopics match {
-      case Some(rtList) => mergeValidationResponses(rtList.map(x => validateSubject(x)))
-      case None         => Success(Valid)
+  private def validateTopicsExist(maybeTopics: Option[List[String]], metadataMap: Map[String, TopicMetadata]): Try[ValidationResponse] =
+    maybeTopics.map(areTopicsInMetadataMap(_, metadataMap)).getOrElse(Success(Valid))
+
+  private def validatePreviousTopicsCannotPointItself(maybeTopics: Option[List[String]], currentTopic: String): Try[ValidationResponse] =
+    maybeTopics match {
+      case Some(topics) if topics.contains(currentTopic) => Failure(ValidatorException(List(s"Previous topics cannot point to itself, '$currentTopic'!")))
+      case _                                             => Success(Valid)
+    }
+
+  private def areTopicsInMetadataMap(topics: List[String], metadataMap: Map[String, TopicMetadata]): Try[ValidationResponse] = {
+    val notExistingTopics = topics.collect {
+      case topic if !metadataMap.contains(topic) => s"Topic '$topic' does not exist within DVS!"
+    }
+
+    if (notExistingTopics.nonEmpty) {
+      Failure(ValidatorException(notExistingTopics))
+    }
+    else {
+      Success(Valid)
     }
   }
 }

@@ -253,15 +253,16 @@ class CreateTopicProgramSpec extends AsyncFreeSpec with Matchers with IOSuite {
 
     "ingest updated metadata into the metadata topic - verify deprecated date if supplied is not overwritten" in {
       val request        = createTopicMetadataRequest(keySchema, valueSchema, deprecated = true, deprecatedDate = Some(Instant.now))
-        .copy(replacementTopics = Some(List("dvs.subject.replacement")))
+        .copy(replacementTopics = Some(List("dvs.subject")))
       val updatedRequest = createTopicMetadataRequest(keySchema, valueSchema, "updated@email.com", deprecated = true)
       for {
         publishTo   <- Ref[IO].of(Map.empty[String, (GenericRecord, Option[GenericRecord], Option[Headers])])
         consumeFrom <- Ref[IO].of(Map.empty[Subject, TopicMetadataContainer])
         metadata    <- IO(new TestMetadataAlgebraWithPublishTo(consumeFrom))
         ts          <- initTestServices(new TestKafkaClientAlgebraWithPublishTo(publishTo).some, metadata.some)
-        _           <- ts.program.createTopic(subject, request, topicDetails, true)
+        _           <- ts.program.createTopic(subject, request.copy(deprecated = false, deprecatedDate = None, replacementTopics = None), topicDetails, true)
         _           <- metadata.addToMetadata(subject, request)
+        _           <- ts.program.createTopic(subject, request, topicDetails, true)
         metadataMap <- publishTo.get
         _           <- ts.program.createTopic(subject, updatedRequest, topicDetails, true)
         updatedMap  <- publishTo.get
@@ -2258,106 +2259,162 @@ class CreateTopicProgramSpec extends AsyncFreeSpec with Matchers with IOSuite {
       ).asLeft)
     }
 
-    "throw error when one of topics pattern in replacementTopics is incorrect" in {
-      val incorrectReplacementTopicsRequest = topicMetadataRequest.copy(replacementTopics = Some(List("dvs.valid.replacement", "incorrect.dvs.replacement")))
-      val result = for {
-        ts <- initTestServices()
-        _ <- ts.program.createTopic(subject, incorrectReplacementTopicsRequest, topicDetails)
-      } yield ()
-
-      result.attempt.map(_ shouldBe InvalidTopicFormatError("incorrect.dvs.replacement").asLeft)
-    }
-
-    "throw error when the more than one topic patterns in replacementTopics are incorrect" in {
-      val incorrectReplacementTopicsRequest = topicMetadataRequest.copy(
-        replacementTopics = Some(List("dvs.valid.replacement", "incorrect.dvs.replacement1", "incorrect.dvs.replacement2")))
-      val result = for {
-        ts <- initTestServices()
-        _ <- ts.program.createTopic(subject, incorrectReplacementTopicsRequest, topicDetails)
-      } yield ()
-
-      result.attempt.map(_ shouldBe
-        ValidationCombinedErrors(List(
-          InvalidTopicFormatError("incorrect.dvs.replacement1").message,
-          InvalidTopicFormatError("incorrect.dvs.replacement2").message,
-        )).asLeft)
-    }
-
-    "throw error when a topic pattern in previousTopics is incorrect" in {
-      val incorrectPreviousTopicsRequest = topicMetadataRequest.copy(previousTopics = Some(List("dvs.valid.replacement", "incorrect.dvs.previous")))
-      val result = for {
-        ts <- initTestServices()
-        _ <- ts.program.createTopic(subject, incorrectPreviousTopicsRequest, topicDetails)
-      } yield ()
-
-      result.attempt.map(_ shouldBe InvalidTopicFormatError("incorrect.dvs.previous").asLeft)
-    }
-
-    "throw error when the more than one topic pattern in previousTopics are incorrect" in {
-      val incorrectPreviousTopicsRequest = topicMetadataRequest.copy(
-        previousTopics = Some(List("dvs.valid.previous", "incorrect.dvs.previous1", "incorrect.dvs.previous2")))
-      val result = for {
-        ts <- initTestServices()
-        _ <- ts.program.createTopic(subject, incorrectPreviousTopicsRequest, topicDetails)
-      } yield ()
-
-      result.attempt.map(_ shouldBe
-        ValidationCombinedErrors(List(
-          InvalidTopicFormatError("incorrect.dvs.previous1").message,
-          InvalidTopicFormatError("incorrect.dvs.previous2").message,
-        )).asLeft)
-    }
-
     "throw error when a topic being deprecated does not have replacementTopics populated" in {
+      val currentTopic = "dvs.test.topic"
       val incorrectTopicDeprecationRequest = topicMetadataRequest.copy(deprecated = true)
 
-      testFailure(incorrectTopicDeprecationRequest, ReplacementTopicsMissingError(subject.value))
+      testFailure(incorrectTopicDeprecationRequest, ReplacementTopicsMissingError(currentTopic), Subject.createValidated(currentTopic).get)
     }
 
     "throw error when a topic being deprecated has empty replacementTopics" in {
+      val currentTopic = "dvs.test.topic"
       val incorrectTopicDeprecationRequest = topicMetadataRequest.copy(deprecated = true, replacementTopics = Some(List.empty))
 
-      testFailure(incorrectTopicDeprecationRequest, ReplacementTopicsMissingError(subject.value))
+      testFailure(incorrectTopicDeprecationRequest, ReplacementTopicsMissingError(currentTopic), Subject.createValidated(currentTopic).get)
     }
 
-    "Topic is deprecated with valid replacementTopics" in {
-      val topics = Some(List("dvs.subject.replacement"))
+    "throw error when replacementTopics contain all non-existing topics" in {
+      val replacementTopics = List("dvs.test.not.existing", "incorrect.dvs.replacement")
+      val request = topicMetadataRequest.copy(replacementTopics = Some(replacementTopics))
+      val result = for {
+        ts <- initTestServices()
+        _ <- ts.program.createTopic(subject, request, topicDetails)
+      } yield ()
+
+      result.attempt.map(_ shouldBe ValidationCombinedErrors(List(
+        TopicMetadataError.TopicDoesNotExist(replacementTopics.head).message,
+        TopicMetadataError.TopicDoesNotExist(replacementTopics(1)).message
+      )).asLeft)
+    }
+
+    "throw error when replacementTopics contain some non-existing topics" in {
+      val replacementTopics = List("dvs.test.existing", "incorrect.dvs.replacement")
+      val updatedRequest = topicMetadataRequest.copy(replacementTopics = Some(replacementTopics))
+      val result = for {
+        ts <- initTestServices()
+        _ <- ts.program.createTopic(Subject.createValidated(replacementTopics.head).get, topicMetadataRequest, topicDetails)
+        _ <- ts.program.createTopic(subject, topicMetadataRequest, topicDetails)
+        _ <- ts.program.createTopic(Subject.createValidated(replacementTopics.head).get, updatedRequest, topicDetails)
+      } yield ()
+
+      result.attempt.map(_ shouldBe TopicMetadataError.TopicDoesNotExist(replacementTopics(1)).asLeft)
+    }
+
+    "throw error when a new topic being created is deprecated pointing to itself in replacementTopics" in {
+      val currentTopic = "dvs.subject"
+      val replacementTopics = Some(List(currentTopic))
       val now = Some(Instant.now())
-      val deprecateWithReplacementTopicsRequest = topicMetadataRequest.copy(
+      val request = topicMetadataRequest.copy(
         deprecated = true,
         deprecatedDate = now,
-        replacementTopics = topics)
+        replacementTopics = replacementTopics)
 
-      testSuccess(deprecateWithReplacementTopicsRequest,
-        deprecated = true,
-        deprecatedDate = now,
-        replacementTopics = topics)
+      testFailure(request, TopicMetadataError.TopicDoesNotExist(currentTopic), Subject.createValidated(currentTopic).get)
     }
 
-    "valid replacementTopics value is accepted and updated" in {
-      val topics = Some(List("dvs.subject.replacement"))
-      val replacementTopicsRequest = topicMetadataRequest.copy(replacementTopics = topics)
+    "deprecate a topic with existing replacementTopics" in {
+      val replacementTopics = Some(List("dvs.subject"))
+      val now = Some(Instant.now())
+      val request = topicMetadataRequest.copy(
+        deprecated = true,
+        deprecatedDate = now,
+        replacementTopics = replacementTopics)
 
-      testSuccess(replacementTopicsRequest, replacementTopics = topics)
+      testSuccess(request,
+        deprecated = true,
+        deprecatedDate = now,
+        replacementTopics = replacementTopics,
+        createReplacementAndPreviousTopics = true
+      )
+    }
+
+    "deprecate a topic with which replacementTopics points to itself" in {
+      val replacementTopics = Some(List("dvs.subject"))
+      val now = Some(Instant.now())
+      val request = topicMetadataRequest.copy(
+        deprecated = true,
+        deprecatedDate = now,
+        replacementTopics = replacementTopics)
+
+      testSuccess(request,
+        deprecated = true,
+        deprecatedDate = now,
+        replacementTopics = replacementTopics,
+        createReplacementAndPreviousTopics = true
+      )
+    }
+
+    "valid replacementTopics value is accepted and updated even if topic is not being deprecated" in {
+      val topics = Some(List("dvs.subject.replacement"))
+      val request = topicMetadataRequest.copy(replacementTopics = topics)
+
+      testSuccess(request, replacementTopics = topics, createReplacementAndPreviousTopics = true)
+    }
+
+    "throw error when previousTopics contains all non-existing topics" in {
+      val previousTopics = List("dvs.test.not.existing", "incorrect.dvs.previous")
+      val request = topicMetadataRequest.copy(previousTopics = Some(previousTopics))
+      val result = for {
+        ts <- initTestServices()
+        _ <- ts.program.createTopic(subject, request, topicDetails)
+      } yield ()
+
+      result.attempt.map(_ shouldBe ValidationCombinedErrors(List(
+        TopicMetadataError.TopicDoesNotExist(previousTopics.head).message,
+        TopicMetadataError.TopicDoesNotExist(previousTopics(1)).message
+      )).asLeft)
+    }
+
+    "throw error when previousTopics contains some non-existing topics" in {
+      val previousTopics = List("dvs.test.existing", "incorrect.dvs.previous")
+      val updatedRequest = topicMetadataRequest.copy(previousTopics = Some(previousTopics))
+      val result = for {
+        ts <- initTestServices()
+        _ <- ts.program.createTopic(Subject.createValidated(previousTopics.head).get, topicMetadataRequest, topicDetails)
+        _ <- ts.program.createTopic(subject, topicMetadataRequest, topicDetails)
+        _ <- ts.program.createTopic(Subject.createValidated(previousTopics.head).get, updatedRequest, topicDetails)
+      } yield ()
+
+      result.attempt.map(_ shouldBe TopicMetadataError.TopicDoesNotExist(previousTopics(1)).asLeft)
+    }
+
+    "throw error when previousTopics points to itself" in {
+      val previousTopics = List("dvs.subject")
+      val updatedRequest = topicMetadataRequest.copy(previousTopics = Some(previousTopics))
+      val result = for {
+        ts <- initTestServices()
+        _ <- ts.program.createTopic(subject, topicMetadataRequest, topicDetails)
+        _ <- ts.program.createTopic(subject, updatedRequest, topicDetails)
+      } yield ()
+
+      result.attempt.map(_ shouldBe TopicMetadataError.PreviousTopicsCannotPointItself(previousTopics.head).asLeft)
     }
 
     "valid previousTopics value is accepted and updated" in {
       val topics = Some(List("dvs.subject.previous"))
-      val previousTopicsRequest = topicMetadataRequest.copy(previousTopics = topics)
+      val request = topicMetadataRequest.copy(previousTopics = topics)
 
-      testSuccess(previousTopicsRequest, previousTopics = topics)
+      testSuccess(request, previousTopics = topics, createReplacementAndPreviousTopics = true)
     }
 
     def testSuccess(request: TopicMetadataV2Request,
                     deprecated: Boolean = false,
                     deprecatedDate: Option[Instant] = None,
                     replacementTopics: Option[List[String]] = None,
-                    previousTopics: Option[List[String]] = None) = {
+                    previousTopics: Option[List[String]] = None,
+                    createReplacementAndPreviousTopics: Boolean = false) = {
       for {
         publishTo <- Ref[IO].of(Map.empty[String, (GenericRecord, Option[GenericRecord], Option[Headers])])
         consumeFrom <- Ref[IO].of(Map.empty[Subject, TopicMetadataContainer])
         metadata <- IO(new TestMetadataAlgebraWithPublishTo(consumeFrom))
         ts <- initTestServices(new TestKafkaClientAlgebraWithPublishTo(publishTo).some, metadata.some)
+        _ <- if (createReplacementAndPreviousTopics) {
+          (replacementTopics.getOrElse(List.empty) ++ previousTopics.getOrElse(List.empty)).traverse(t => ts.program.createTopic(
+            Subject.createValidated(t).get,
+            request.copy(deprecated = false, replacementTopics = None, previousTopics = None), topicDetails))
+        } else {
+          IO.pure()
+        }
         _ <- ts.program.createTopic(subject, request, topicDetails)
         published <- publishTo.get
         expectedTopicMetadata <- TopicMetadataV2.encode[IO](
@@ -2374,10 +2431,10 @@ class CreateTopicProgramSpec extends AsyncFreeSpec with Matchers with IOSuite {
       }
     }
 
-    def testFailure(request: TopicMetadataV2Request, error: TopicMetadataError) = {
+    def testFailure(request: TopicMetadataV2Request, error: TopicMetadataError, currentTopic: Subject = subject) = {
       val result = for {
         ts <- initTestServices()
-        _ <- ts.program.createTopic(subject, request, topicDetails)
+        _ <- ts.program.createTopic(currentTopic, request, topicDetails)
       } yield ()
 
       result.attempt.map(_ shouldBe error.asLeft)

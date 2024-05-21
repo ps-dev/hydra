@@ -110,7 +110,6 @@ final class CreateTopicProgram[F[_]: Bracket[*[_], Throwable]: Sleep: Logger] pr
                                createTopicRequest: TopicMetadataV2Request,
                              ): F[Unit] = {
     for {
-      _ <- metadataValidator.validate(createTopicRequest, topicName)
       metadata <- metadataAlgebra.getMetadataFor(topicName)
       createdDate = metadata.map(_.value.createdDate).getOrElse(createTopicRequest.createdDate)
       deprecatedDate = metadata.map(_.value.deprecatedDate).getOrElse(createTopicRequest.deprecatedDate) match {
@@ -151,6 +150,7 @@ final class CreateTopicProgram[F[_]: Bracket[*[_], Throwable]: Sleep: Logger] pr
     for {
       _ <- checkThatTopicExists(topicName.value)
       _ <- schemaValidator.validate(createTopicRequest, topicName, withRequiredFields, maybeSkipValidations)
+      _ <- metadataValidator.validate(createTopicRequest, topicName)
       _ <- publishMetadata(topicName, createTopicRequest)
     } yield ()
 
@@ -173,6 +173,7 @@ final class CreateTopicProgram[F[_]: Bracket[*[_], Throwable]: Sleep: Logger] pr
 
     (for {
       _ <- Resource.eval(schemaValidator.validate(createTopicRequest, topicName, withRequiredFields))
+      _ <- Resource.eval(metadataValidator.validate(createTopicRequest, topicName))
       _ <- registerSchemas(
         topicName,
         createTopicRequest.schemas.key,
@@ -201,7 +202,7 @@ object CreateTopicProgram {
       v2MetadataTopicName,
       metadataAlgebra,
       KeyAndValueSchemaV2Validator.make(schemaRegistry, metadataAlgebra),
-      new TopicMetadataV2Validator(metadataAlgebra)
+      TopicMetadataV2Validator.make(metadataAlgebra, kafkaAdmin)
     )
   }
 
