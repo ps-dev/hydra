@@ -8,8 +8,8 @@ import cats.effect.{Concurrent, ConcurrentEffect, ContextShift, IO, Timer}
 import cats.implicits._
 import fs2.kafka._
 import hydra.avro.registry.SchemaRegistry
-import hydra.common.alerting.AlertProtocol.NotificationMessage
-import hydra.common.alerting.NotificationLevel
+import hydra.common.alerting.AlertProtocol.{NotificationMessage, NotificationScope}
+import hydra.common.alerting.{NotificationLevel, NotificationType}
 import hydra.common.alerting.sender.{InternalNotificationSender, NotificationSender}
 import hydra.common.config.KafkaConfigUtils.KafkaClientSecurityConfig
 import hydra.kafka.algebras.ConsumerGroupsAlgebra.{Consumer, ConsumerTopics, DetailedConsumerGroup, DetailedTopicConsumers, PartitionOffset, TopicConsumers}
@@ -188,8 +188,15 @@ object ConsumerGroupsAlgebra {
 
           lagPercentage: Double = (totalLag.toDouble / totalLargestOffset.toDouble) * 100
 
-        } yield PartitionOffsetsWithTotalLag(totalLargestOffset, totalGroupOffset, totalLag, lagPercentage, partitionOffsetMapWithLag)
-
+          _ <- notificationsService.send(NotificationScope(NotificationLevel.Warn),
+            NotificationMessage(
+              s"""Total Offset Lag on ${dvsConsumersTopic} is ${totalLag.toString} ,
+                 | Lag percentage is ${lagPercentage.toString} ,
+                 | Total_Group_Offset is ${totalGroupOffset} ,
+                 | Total_Largest_Offset is ${totalLargestOffset}""".stripMargin)
+          )
+        } yield
+          PartitionOffsetsWithTotalLag(totalLargestOffset, totalGroupOffset, totalLag, lagPercentage, partitionOffsetMapWithLag)
       }
 
       private def addStateToTopicConsumers(topicConsumers: TopicConsumers): F[TopicConsumers] = {
@@ -279,10 +286,12 @@ object ConsumerGroupsAlgebra {
                                                                                                           consumerGroupsOffsetFacade: Ref[F, ConsumerGroupsOffsetFacade]
                                                                                                         )(implicit notificationsService: InternalNotificationSender[F]): F[Unit] = {
 
-      offsetStream.evalTap {
-        case Right((partition, offset))  => consumerGroupsOffsetFacade.update(_.addOffset(partition, offset))
-        case _ => Logger[F].error("Error in consumeOffsetStreamIntoCache")
-    }.compile.drain
+    offsetStream.evalTap {
+      case Right((partition, offset))  => consumerGroupsOffsetFacade.update(_.addOffset(partition, offset))
+      case _ => Logger[F].error("Error in consumeOffsetStreamIntoCache")
+    }
+      .makeRetryableWithNotification(Infinite, "offsetStream")
+      .compile.drain
   }
 }
 
