@@ -99,6 +99,11 @@ final case class TestConsumerGroupsAlgebra(consumerGroupMap: Map[TopicConsumerKe
   override def getUniquePerNodeConsumerGroup: String = "uniquePerNodeConsumerGroup"
 
   override def getOffsetsForInternalCGTopic: IO[PartitionOffsetsWithTotalLag] = ???
+//  {
+//    IO.pure(PartitionOffsetsWithTotalLag(60, 30, 30, 50,
+//      List(PartitionOffset(1,10,20,10), PartitionOffset(2,10,20,10), PartitionOffset(3,10,20,10))
+//    ))
+//  }
 }
 
 object TestConsumerGroupsAlgebra {
