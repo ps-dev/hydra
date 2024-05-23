@@ -1,8 +1,11 @@
 package hydra.kafka.services
 
-import hydra.core.marshallers.GenericSchema
+import hydra.common.validation.MetadataAdditionalValidation
+import hydra.core.marshallers.{GenericSchema, TopicMetadataRequest}
+import hydra.kafka.model.TopicMetadata
+import hydra.kafka.programs.TopicMetadataError
 
-import scala.util.{Failure, Try}
+import scala.util.{Failure, Success, Try}
 
 object TopicMetadataValidator {
 
@@ -16,24 +19,36 @@ object TopicMetadataValidator {
       validFormat
     )
 
-  def validate(gOpt: Option[GenericSchema]): Try[ValidationResponse] = {
+  def validate(metadataRequest: TopicMetadataRequest, schema: GenericSchema, metadataMap: Map[String, TopicMetadata]): Try[ValidationResponse] =
+    mergeValidationResponses(
+      List(
+        validateSubject(Option(schema)),
+        validateTopicsExist(metadataRequest.replacementTopics, metadataMap),
+        validateTopicsExist(metadataRequest.previousTopics, metadataMap),
+        validatePreviousTopicsCannotPointItself(metadataRequest.previousTopics, schema.subject),
+        validateAdditional(metadataRequest, schema.subject),
+      )
+    )
+
+  def validateSubject(gOpt: Option[GenericSchema]): Try[ValidationResponse] = {
     gOpt match {
-      case Some(g) =>
-        subjectValidationFunctions
-          .map(f => f(s"${g.namespace}.${g.name}"))
-          .collect {
-            case r: Invalid => r
-          } match {
-          case respSeq: Seq[ValidationResponse] if respSeq.nonEmpty =>
-            Failure(
-              SchemaValidatorException(respSeq.map(invalid => invalid.reason))
-            )
-          case _ => scala.util.Success(Valid)
-        }
-      case None =>
-        Failure(SchemaValidatorException(SchemaError :: Nil))
+      case Some(g) => validateSubject(s"${g.namespace}.${g.name}")
+      case None    => Failure(ValidatorException(SchemaError :: Nil))
     }
   }
+
+  def validateSubject(subject: String): Try[ValidationResponse] =
+    subjectValidationFunctions
+      .map(f => f(subject))
+      .collect {
+        case r: Invalid => r
+      } match {
+      case respSeq: Seq[ValidationResponse] if respSeq.nonEmpty =>
+        Failure(
+          ValidatorException(respSeq.map(invalid => invalid.reason))
+        )
+      case _ => scala.util.Success(Valid)
+    }
 
   private def topicIsTooLong(topic: String): ValidationResponse = {
     topic match {
@@ -73,6 +88,61 @@ object TopicMetadataValidator {
       case _                               => Valid
     }
   }
+
+  private def validateAdditional(metadataRequest: TopicMetadataRequest, topic: String): Try[ValidationResponse] = {
+    val invalidReasons = metadataRequest.additionalValidations.getOrElse(Nil).collect {
+      case MetadataAdditionalValidation.replacementTopics =>
+        validateDeprecatedTopicHasReplacementTopic(metadataRequest.deprecated.contains(true), metadataRequest.replacementTopics, topic)
+    }.collect {
+      case Invalid(reason) => reason
+    }
+
+    if (invalidReasons.nonEmpty) {
+      Failure(ValidatorException(invalidReasons))
+    }
+    else {
+      Success(Valid)
+    }
+  }
+
+  def validateDeprecatedTopicHasReplacementTopic(deprecated: Boolean, replacementTopics: Option[List[String]], topic: String): ValidationResponse = {
+    val isDeprecatedWithReplacementTopic = if (deprecated) replacementTopics.exists(_.nonEmpty) else true
+    if (isDeprecatedWithReplacementTopic) {
+      Valid
+    } else {
+      Invalid(TopicMetadataError.ReplacementTopicsMissingError(topic).message)
+    }
+  }
+
+  private def mergeValidationResponses(validationList: List[Try[ValidationResponse]]): Try[ValidationResponse] =
+    validationList collect {
+      case Failure(ValidatorException(failures)) => failures
+    } match {
+      case failures: Seq[Seq[String]] if failures.nonEmpty => Failure(ValidatorException(failures.flatten))
+      case _ => Success(Valid)
+    }
+
+  private def validateTopicsExist(maybeTopics: Option[List[String]], metadataMap: Map[String, TopicMetadata]): Try[ValidationResponse] =
+    maybeTopics.map(areTopicsInMetadataMap(_, metadataMap)).getOrElse(Success(Valid))
+
+  private def validatePreviousTopicsCannotPointItself(maybeTopics: Option[List[String]], currentTopic: String): Try[ValidationResponse] =
+    maybeTopics match {
+      case Some(topics) if topics.contains(currentTopic) => Failure(ValidatorException(List(s"Previous topics cannot point to itself, '$currentTopic'!")))
+      case _                                             => Success(Valid)
+    }
+
+  private def areTopicsInMetadataMap(topics: List[String], metadataMap: Map[String, TopicMetadata]): Try[ValidationResponse] = {
+    val notExistingTopics = topics.collect {
+      case topic if !metadataMap.contains(topic) => s"Topic '$topic' does not exist within DVS!"
+    }
+
+    if (notExistingTopics.nonEmpty) {
+      Failure(ValidatorException(notExistingTopics))
+    }
+    else {
+      Success(Valid)
+    }
+  }
 }
 
 object ErrorMessages {
@@ -100,5 +170,5 @@ case object Valid extends ValidationResponse
 
 case class Invalid(reason: String) extends ValidationResponse
 
-case class SchemaValidatorException(reasons: Seq[String])
+case class ValidatorException(reasons: Seq[String])
     extends RuntimeException

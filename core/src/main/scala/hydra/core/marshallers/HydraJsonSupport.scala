@@ -21,7 +21,9 @@ import java.util.UUID
 import akka.actor.ActorPath
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import akka.http.scaladsl.model.StatusCode
+import hydra.common.serdes.EnumEntryJsonFormat
 import hydra.common.util.Resource._
+import hydra.common.validation.AdditionalValidation
 import org.joda.time.DateTime
 import org.joda.time.format.ISODateTimeFormat
 import spray.json.{JsString, _}
@@ -157,7 +159,10 @@ trait HydraJsonSupport extends SprayJsonSupport with DefaultJsonProtocol {
 
   implicit val genericErrorFormat = jsonFormat2(GenericError)
 
-  implicit val topicCreationMetadataFormat = jsonFormat10(TopicMetadataRequest)
+  implicit val additionalValidationFormat: EnumEntryJsonFormat[AdditionalValidation] =
+    new EnumEntryJsonFormat[AdditionalValidation](Seq.empty)
+
+  implicit val topicCreationMetadataFormat = jsonFormat13(TopicMetadataRequest)
 
   implicit val genericSchemaFormat = jsonFormat2(GenericSchema)
 
@@ -170,12 +175,15 @@ case class TopicMetadataRequest(
     streamType: StreamType,
     derived: Boolean,
     deprecated: Option[Boolean],
+    replacementTopics: Option[List[String]],
+    previousTopics: Option[List[String]],
     dataClassification: String,
     subDataClassification: Option[String],
     contact: String,
     additionalDocumentation: Option[String],
     notes: Option[String],
-    notificationUrl: Option[String]
+    notificationUrl: Option[String],
+    additionalValidations: Option[List[AdditionalValidation]]
 ) {
   def updateDataClassification(dc: String): TopicMetadataRequest = this.copy(dataClassification = dc)
 

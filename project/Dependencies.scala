@@ -217,7 +217,8 @@ object Dependencies {
 
   val kafkaDeps: Seq[ModuleID] = coreDeps ++ Seq(
     akkaKafkaStream,
-    refined
+    refined,
+    sprayJson
   ) ++ kafka ++ akkaHttpHal ++ vulcan ++ fs2Kafka ++ integrationDeps
 
   val awsAuthDeps: Seq[ModuleID] = awsSdk

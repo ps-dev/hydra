@@ -138,6 +138,8 @@ class TopicDeletionProgramSpec extends AnyFlatSpec with Matchers {
       StreamTypeV2.Entity,
       deprecated = deprecated,
       deprecatedDate,
+      replacementTopics = None,
+      previousTopics = None,
       Public,
       None,
       NonEmptyList.of(Email.create(email).get),

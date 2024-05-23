@@ -113,12 +113,15 @@ class MetadataAlgebraSpec extends AnyWordSpecLike with Matchers with Notificatio
     }
   }
 
-  private def getMetadataGenericRecords(subject: Subject, nullValue: Boolean = false): (IO[(GenericRecord, Option[GenericRecord], Option[Headers])], TopicMetadataV2Key, TopicMetadataV2Value) = {
+  private def getMetadataGenericRecords(subject: Subject, nullValue: Boolean = false): (IO[(GenericRecord,
+    Option[GenericRecord], Option[Headers])], TopicMetadataV2Key, TopicMetadataV2Value) = {
     val key = TopicMetadataV2Key(subject)
     val value = TopicMetadataV2Value(
         StreamTypeV2.Entity,
         deprecated = false,
         None,
+        replacementTopics = None,
+        previousTopics = None,
         Public,
         None,
         NonEmptyList.one(Slack.create("#channel").get),

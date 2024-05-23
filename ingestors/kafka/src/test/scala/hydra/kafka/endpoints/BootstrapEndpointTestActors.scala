@@ -34,6 +34,8 @@ trait BootstrapEndpointTestActors[F[_]] extends BootstrapEndpointActors[F] {
           "",
           derived = false,
           None,
+          None,
+          None,
           "",
           None,
           "",
@@ -41,7 +43,8 @@ trait BootstrapEndpointTestActors[F[_]] extends BootstrapEndpointActors[F] {
           None,
           UUID.randomUUID(),
           DateTime.now().minusSeconds(10),
-          Some("notification.url")
+          Some("notification.url"),
+          None
         )
       }
   }

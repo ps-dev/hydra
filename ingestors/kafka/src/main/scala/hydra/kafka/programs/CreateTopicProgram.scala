@@ -4,14 +4,15 @@ import cats.effect.{Bracket, ExitCase, Resource, Sync}
 import hydra.avro.registry.SchemaRegistry
 import hydra.avro.registry.SchemaRegistry.SchemaVersion
 import hydra.kafka.algebras.{KafkaAdminAlgebra, KafkaClientAlgebra, MetadataAlgebra}
-import hydra.kafka.model.{AdditionalValidation, SkipValidation, StreamTypeV2, TopicMetadataV2, TopicMetadataV2Key, TopicMetadataV2Request}
+import hydra.kafka.model.{SkipValidation, StreamTypeV2, TopicMetadataV2, TopicMetadataV2Key, TopicMetadataV2Request}
 import hydra.kafka.programs.CreateTopicProgram._
 import hydra.kafka.util.KafkaUtils.TopicDetails
 import org.typelevel.log4cats.Logger
 import org.apache.avro.Schema
 import retry.syntax.all._
-import retry.{RetryDetails, RetryPolicy, _}
+import retry._
 import cats.implicits._
+import hydra.common.validation.{AdditionalValidation, AdditionalValidationUtil}
 import hydra.kafka.model.TopicMetadataV2Request.Subject
 
 import scala.language.higherKinds
@@ -50,8 +51,12 @@ final class CreateTopicProgram[F[_]: Bracket[*[_], Throwable]: Sleep: Logger] pr
           schemaRegistry.registerSchema(suffixedSubject, schema) *>
             schemaRegistry.getVersion(suffixedSubject, schema).map {
               newSchemaVersion =>
-                if (previousSchemaVersion.contains(newSchemaVersion)) None
-                else Some(newSchemaVersion)
+                if (previousSchemaVersion.contains(newSchemaVersion)) {
+                  None
+                }
+                else {
+                  Some(newSchemaVersion)
+                }
             }
         }
     }.retryingOnAllErrors(retryPolicy, onFailure("RegisterSchema"))
@@ -88,10 +93,8 @@ final class CreateTopicProgram[F[_]: Bracket[*[_], Throwable]: Sleep: Logger] pr
         case None =>
           kafkaAdmin
             .createTopic(subject.value, topicDetails)
-            .retryingOnAllErrors(retryPolicy, onFailure("CreateTopicResource")) *> Bracket[
-            F,
-            Throwable
-          ].pure(Some(subject))
+            .retryingOnAllErrors(retryPolicy, onFailure("CreateTopicResource")) *>
+            Bracket[F, Throwable].pure(Some(subject))
       }
     Resource
       .makeCase(createTopic)({
@@ -107,7 +110,6 @@ final class CreateTopicProgram[F[_]: Bracket[*[_], Throwable]: Sleep: Logger] pr
                                createTopicRequest: TopicMetadataV2Request,
                              ): F[Unit] = {
     for {
-      _ <- metadataValidator.validate(createTopicRequest)
       metadata <- metadataAlgebra.getMetadataFor(topicName)
       createdDate = metadata.map(_.value.createdDate).getOrElse(createTopicRequest.createdDate)
       deprecatedDate = metadata.map(_.value.deprecatedDate).getOrElse(createTopicRequest.deprecatedDate) match {
@@ -120,9 +122,15 @@ final class CreateTopicProgram[F[_]: Bracket[*[_], Throwable]: Sleep: Logger] pr
             None
           }
       }
+      additionalValidationUtility = new AdditionalValidationUtil(
+        isExistingTopic = metadata.isDefined,
+        currentAdditionalValidations = metadata.flatMap(_.value.additionalValidations))
       message = (TopicMetadataV2Key(topicName),
-        createTopicRequest.copy(createdDate = createdDate, deprecatedDate = deprecatedDate,
-          additionalValidations = AdditionalValidation.validations(metadata)).toValue)
+        createTopicRequest.copy(
+          createdDate = createdDate,
+          deprecatedDate = deprecatedDate,
+          additionalValidations = additionalValidationUtility.pickValidations()
+        ).toValue)
       records <- TopicMetadataV2.encode[F](message._1, Some(message._2), None)
       _ <- kafkaClient
         .publishMessage(records, v2MetadataTopicName.value)
@@ -130,7 +138,7 @@ final class CreateTopicProgram[F[_]: Bracket[*[_], Throwable]: Sleep: Logger] pr
     } yield ()
   }
 
-  def checkThatTopicExists(topicName: String): F[Unit] =
+  private def checkThatTopicExists(topicName: String): F[Unit] =
     for {
       result <- kafkaAdmin.describeTopic(topicName)
       _ <- eff.fromOption(result, MetadataOnlyTopicDoesNotExist(topicName))
@@ -142,6 +150,7 @@ final class CreateTopicProgram[F[_]: Bracket[*[_], Throwable]: Sleep: Logger] pr
     for {
       _ <- checkThatTopicExists(topicName.value)
       _ <- schemaValidator.validate(createTopicRequest, topicName, withRequiredFields, maybeSkipValidations)
+      _ <- metadataValidator.validate(createTopicRequest, topicName)
       _ <- publishMetadata(topicName, createTopicRequest)
     } yield ()
 
@@ -164,6 +173,7 @@ final class CreateTopicProgram[F[_]: Bracket[*[_], Throwable]: Sleep: Logger] pr
 
     (for {
       _ <- Resource.eval(schemaValidator.validate(createTopicRequest, topicName, withRequiredFields))
+      _ <- Resource.eval(metadataValidator.validate(createTopicRequest, topicName))
       _ <- registerSchemas(
         topicName,
         createTopicRequest.schemas.key,
@@ -192,7 +202,7 @@ object CreateTopicProgram {
       v2MetadataTopicName,
       metadataAlgebra,
       KeyAndValueSchemaV2Validator.make(schemaRegistry, metadataAlgebra),
-      new TopicMetadataV2Validator()
+      TopicMetadataV2Validator.make(metadataAlgebra, kafkaAdmin)
     )
   }
 

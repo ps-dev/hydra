@@ -25,6 +25,8 @@ object TopicUtils {
         StreamTypeV2.Entity,
         deprecated = false,
         deprecatedDate = None,
+        replacementTopics = None,
+        previousTopics = None,
         Public,
         None,
         NonEmptyList.of(Email.create("test@test.com").get),

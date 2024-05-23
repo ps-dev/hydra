@@ -23,13 +23,16 @@ class TopicMetadataAdapterSpec
       subject = "hydra-test",
       derived = false,
       deprecated = None,
+      replacementTopics = None,
+      previousTopics = None,
       dataClassification = "public",
       subDataClassification = Some("public"),
       contact = "alex",
       additionalDocumentation = None,
       notes = None,
       createdDate = DateTime.now,
-      notificationUrl = Some("notification.url")
+      notificationUrl = Some("notification.url"),
+      additionalValidations = None
     )
 
     val resource = toResource(tm)
