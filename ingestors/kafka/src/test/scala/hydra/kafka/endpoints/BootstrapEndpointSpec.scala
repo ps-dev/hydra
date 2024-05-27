@@ -18,8 +18,7 @@ import hydra.core.protocol.{Ingest, IngestorCompleted, IngestorError}
 import hydra.kafka.marshallers.HydraKafkaJsonSupport
 import hydra.kafka.model.{DataClassification, SubDataClassification, TopicMetadata}
 import hydra.kafka.producer.AvroRecord
-import hydra.kafka.services.StreamsManagerActor.{GetMetadata, GetMetadataResponse}
-import hydra.kafka.services.{MockStreamsManagerActor, StreamsManagerActor}
+import hydra.kafka.services.StreamsManagerActor
 import hydra.kafka.util.{KafkaUtils, MetadataUtils}
 import io.confluent.kafka.serializers.KafkaAvroSerializer
 import net.manub.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
@@ -28,12 +27,12 @@ import org.apache.avro.generic.GenericRecord
 import org.joda.time.DateTime
 import org.joda.time.format.ISODateTimeFormat
 import org.scalamock.scalatest.proxy.MockFactory
+import org.scalatest.Assertion
 import org.scalatest.concurrent.Eventually
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
 import spray.json._
 
-import java.util.UUID
 import scala.concurrent.duration._
 import scala.io.Source
 
@@ -102,7 +101,6 @@ class BootstrapEndpointSpec
   )
   val streamsManagerActor: ActorRef = system.actorOf(streamsManagerProps, "streamsManagerActor")
 
-
   private val bootstrapRoute = new BootstrapEndpoint(system, streamsManagerActor, KafkaConfigUtils.kafkaSecurityEmptyConfig, schemaRegistryEmptySecurityConfig, auth, awsSecurityService).route
 
   implicit val f = jsonFormat16(TopicMetadata)
@@ -112,6 +110,8 @@ class BootstrapEndpointSpec
   override def beforeAll: Unit = {
     EmbeddedKafka.start()
     EmbeddedKafka.createCustomTopic("_hydra.metadata.topic")
+    EmbeddedKafka.createCustomTopic("dvs.test.existing")
+    EmbeddedKafka.createCustomTopic("dvs.test.v2.existing")
   }
 
   override def afterAll = {
@@ -123,18 +123,6 @@ class BootstrapEndpointSpec
       duration = 10.seconds
     )
   }
-
-  private def bootstrapRoute(existingTopics: List[String]) = {
-    new BootstrapEndpoint(
-      system,
-      system.actorOf(Props(new MockStreamsManagerActor(existingTopics))),
-      KafkaConfigUtils.kafkaSecurityEmptyConfig,
-      schemaRegistryEmptySecurityConfig,
-      auth,
-      awsSecurityService
-    ).route
-  }
-
 
   def v1CreateTopicRequest(namespace: String = "exp.assessment",
                            name: String = "SkillAssessmentTopicsScored",
@@ -594,8 +582,8 @@ class BootstrapEndpointSpec
         responseAs[String] shouldBe
           s"""
              |[
-             |"Topic 'dvs.test.not.existing' does not exist within DVS!",
-             |"Topic 'invalid.dvs.testing' does not exist within DVS!"
+             |"Topic 'dvs.test.not.existing' does not exist!",
+             |"Topic 'invalid.dvs.testing' does not exist!"
              |]
              |""".stripMargin.replace("\n", "")
       }
@@ -604,12 +592,12 @@ class BootstrapEndpointSpec
     "v1: reject a request when a topic being deprecated contains replacementTopics with some non-existing topics" in {
       Post("/streams",
         v1CreateTopicRequest(deprecated = true, replacementTopics = Some(List("dvs.test.existing", "invalid.dvs.testing")))
-      ) ~> bootstrapRoute(existingTopics = List("dvs.test.existing")) ~> check {
+      ) ~> bootstrapRoute ~> check {
         status shouldBe StatusCodes.BadRequest
         responseAs[String] shouldBe
           s"""
              |[
-             |"Topic 'invalid.dvs.testing' does not exist within DVS!"
+             |"Topic 'invalid.dvs.testing' does not exist!"
              |]
              |""".stripMargin.replace("\n", "")
       }
@@ -622,25 +610,58 @@ class BootstrapEndpointSpec
         v1CreateTopicRequest(namespace, name, deprecated = true, replacementTopics = Some(List(s"$namespace.$name")))
       ) ~> bootstrapRoute ~> check {
         status shouldBe StatusCodes.BadRequest
-        responseAs[String] shouldBe s"""["Topic '$namespace.$name' does not exist within DVS!"]"""
+        responseAs[String] shouldBe s"""["Topic '$namespace.$name' does not exist!"]"""
       }
     }
 
     "v1: accept a request when an existing topic being deprecated points to itself in replacementTopics" in {
-      val namespace = "exp.dvs"
-      val name = "v1.test"
+      val namespace = "dvs.test"
+      val name = "existing"
+      val existingTopic = s"$namespace.$name"
+
       Post("/streams",
-        v1CreateTopicRequest(namespace, name, deprecated = true, replacementTopics = Some(List(s"$namespace.$name")))
-      ) ~> bootstrapRoute(existingTopics = List(s"$namespace.$name")) ~> check {
+        v1CreateTopicRequest(namespace, name, deprecated = true, replacementTopics = Some(List(existingTopic)))
+      ) ~> bootstrapRoute ~> check {
         status shouldBe StatusCodes.OK
+        val response = responseAs[String].parseJson
+        validateResponseString(response, namespace, name, deprecated = true, replacementTopics = List(existingTopic))
       }
     }
 
     "v1: accept a request when a topic being deprecated contains replacementTopics with all existing topics" in {
+      val replacementTopics = List("dvs.test.existing", "dvs.test.v2.existing")
       Post("/streams",
-        v1CreateTopicRequest(deprecated = true, replacementTopics = Some(List("dvs.test.existing", "dvs.testing.valid")))
-      ) ~> bootstrapRoute(existingTopics = List("dvs.test.existing", "dvs.testing.valid")) ~> check {
+        v1CreateTopicRequest(deprecated = true, replacementTopics = Some(replacementTopics))
+      ) ~> bootstrapRoute ~> check {
         status shouldBe StatusCodes.OK
+        val response = responseAs[String].parseJson
+        validateResponseString(response, deprecated = true, replacementTopics = replacementTopics)
+      }
+    }
+
+    "v1: accept a request when a topic NOT being deprecated contains replacementTopics with all existing topics" in {
+      val replacementTopics = List("dvs.test.existing", "dvs.test.v2.existing")
+      Post("/streams",
+        v1CreateTopicRequest(replacementTopics = Some(replacementTopics))
+      ) ~> bootstrapRoute ~> check {
+        status shouldBe StatusCodes.OK
+        val response = responseAs[String].parseJson
+        validateResponseString(response, replacementTopics = replacementTopics)
+      }
+    }
+
+    "v1: reject a request when a topic NOT being deprecated points to itself in replacementTopics" in {
+      val replacementTopics = List("dvs.test.existing", "dvs.test.v2.existing")
+      Post("/streams",
+        v1CreateTopicRequest(namespace = "dvs.test", name = "existing", replacementTopics = Some(replacementTopics))
+      ) ~> bootstrapRoute ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[String] shouldBe
+          s"""
+             |[
+             |"A non-deprecated topic 'dvs.test.existing' pointing to itself in replacementTopics is not useful!"
+             |]
+             |""".stripMargin.replace("\n", "")
       }
     }
 
@@ -652,8 +673,8 @@ class BootstrapEndpointSpec
         responseAs[String] shouldBe
           s"""
              |[
-             |"Topic 'dvs.test.not.existing' does not exist within DVS!",
-             |"Topic 'invalid.dvs.testing' does not exist within DVS!"
+             |"Topic 'dvs.test.not.existing' does not exist!",
+             |"Topic 'invalid.dvs.testing' does not exist!"
              |]
              |""".stripMargin.replace("\n", "")
       }
@@ -662,63 +683,76 @@ class BootstrapEndpointSpec
     "v1: reject a request when previousTopics contains some non-existing topics" in {
       Post("/streams",
         v1CreateTopicRequest(previousTopics = Some(List("dvs.test.existing", "dvs.test.not.existing")))
-      ) ~> bootstrapRoute(existingTopics = List("dvs.test.existing")) ~> check {
+      ) ~> bootstrapRoute ~> check {
         status shouldBe StatusCodes.BadRequest
         responseAs[String] shouldBe
           s"""
              |[
-             |"Topic 'dvs.test.not.existing' does not exist within DVS!"
+             |"Topic 'dvs.test.not.existing' does not exist!"
              |]
              |""".stripMargin.replace("\n", "")
       }
     }
 
     "v1: reject a request when previousTopics contains itself" in {
-      val namespace = "exp.dvs"
-      val name = "v1.test"
+      val namespace = "dvs.test"
+      val name = "existing"
       Post("/streams",
         v1CreateTopicRequest(namespace, name, previousTopics = Some(List(s"$namespace.$name")))
-      ) ~> bootstrapRoute(existingTopics = List(s"$namespace.$name")) ~> check {
+      ) ~> bootstrapRoute ~> check {
         status shouldBe StatusCodes.BadRequest
         responseAs[String] shouldBe s"""["Previous topics cannot point to itself, '$namespace.$name'!"]"""
       }
     }
 
     "v1: accept a request when all topics in previousTopics exist" in {
+      val previousTopics = List("dvs.test.existing", "dvs.test.v2.existing")
       Post("/streams",
-        v1CreateTopicRequest(previousTopics = Some(List("dvs.test.existing", "dvs.testing.valid")))
-      ) ~> bootstrapRoute(existingTopics = List("dvs.test.existing", "dvs.testing.valid")) ~> check {
+        v1CreateTopicRequest(previousTopics = Some(previousTopics))
+      ) ~> bootstrapRoute ~> check {
         status shouldBe StatusCodes.OK
+        val response = responseAs[String].parseJson
+        validateResponseString(response, previousTopics = previousTopics)
       }
     }
   }
-}
 
-class MockStreamsManagerActor(val subjects: List[String] = List("test.md.subject")) extends Actor {
-
-  def topicMetadata(subject: String): TopicMetadata = TopicMetadata(
-    subject,
-    1,
-    "entity",
-    false,
-    None,
-    None,
-    None,
-    "private",
-    None,
-    "alex",
-    None,
-    None,
-    UUID.randomUUID(),
-    DateTime.now(),
-    Some("notification.url"),
-    None
-  )
-
-  override def receive: Receive = {
-    case GetMetadata => {
-      val metadataMap = subjects.map(s => s -> topicMetadata(s)).toMap
-      sender ! GetMetadataResponse(metadataMap)
-    }
+  def validateResponseString(response: JsValue,
+                             namespace: String = "exp.assessment",
+                             name: String = "SkillAssessmentTopicsScored",
+                             deprecated: Boolean = false,
+                             replacementTopics: List[String] = Nil,
+                             previousTopics: List[String] = Nil): Assertion = {
+    val fields = response.asJsObject.fields
+    val topicName = s"$namespace.$name"
+    val id = fields.getOrElse("id", "")
+    val schemaId = fields.getOrElse("schemaId", "")
+    val createdDate = fields.getOrElse("createdDate", "")
+    response shouldBe
+      s"""{
+         |  "_links": {
+         |    "hydra-schema": {
+         |      "href": "/schemas/$topicName"
+         |    },
+         |    "self": {
+         |      "href": "/streams/$topicName"
+         |    }
+         |  },
+         |  "additionalDocumentation": "akka://some/path/here.jpggifyo",
+         |  "contact": "slackity slack dont talk back",
+         |  "createdDate": $createdDate,
+         |  "dataClassification": "InternalUse",
+         |  "deprecated": $deprecated,
+         |  ${if (replacementTopics.nonEmpty) s""""replacementTopics": ${replacementTopics.toJson},\n""" else ""}
+         |  ${if (previousTopics.nonEmpty) s""""previousTopics": ${previousTopics.toJson},\n""" else ""}
+         |  "derived": false,
+         |  "id": $id,
+         |  "notes": "here are some notes topkek",
+         |  "notificationUrl": "notification.url",
+         |  "schemaId": $schemaId,
+         |  "streamType": "Notification",
+         |  "subDataClassification": "InternalUseOnly",
+         |  "subject": "$topicName"
+         |}""".stripMargin.parseJson
   }
 }

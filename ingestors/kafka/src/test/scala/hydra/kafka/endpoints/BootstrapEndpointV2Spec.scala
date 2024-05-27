@@ -434,6 +434,28 @@ final class BootstrapEndpointV2Spec
       testSuccess(request, preExistingTopics = replacementTopics)
     }
 
+    "accept a request when a topic NOT being deprecated contains replacementTopics with all existing topics" in {
+      val replacementTopics = List("dvs.test.existing", "dvs.test.valid")
+      val request = topicMetadataV2Request.copy(
+        replacementTopics = Some(replacementTopics)
+      ).toJson.compactPrint
+
+      testSuccess(request, preExistingTopics = replacementTopics)
+    }
+
+    "reject a request when a topic NOT being deprecated points to itself in replacementTopics" in {
+      val currentTopic = "dvs.testing.xyz"
+      val request = topicMetadataV2Request.copy(
+        replacementTopics = Some(List(currentTopic))
+      ).toJson.compactPrint
+
+      testFailure(request,
+        TopicMetadataError.SelfRefReplacementTopicsError(currentTopic).message,
+        preExistingTopics = List(currentTopic),
+        currentTopicName = Some(currentTopic)
+      )
+    }
+
     "reject a request when previousTopics contains all non-existing topics" in {
       val previousTopics = List("dvs.test.not.existing", "invalid.dvs.testing")
       val request = topicMetadataV2Request.copy(previousTopics = Some(previousTopics)).toJson.compactPrint

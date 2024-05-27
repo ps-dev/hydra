@@ -10,6 +10,7 @@ sealed trait AdditionalValidation extends EnumEntry
 sealed trait MetadataAdditionalValidation extends AdditionalValidation
 sealed trait SchemaAdditionalValidation extends AdditionalValidation
 
+// NOTE: Please note that any case object added here once must be retained throughout for schema to evolve.
 object MetadataAdditionalValidation extends Enum[MetadataAdditionalValidation] {
 
   case object replacementTopics extends MetadataAdditionalValidation
@@ -17,6 +18,7 @@ object MetadataAdditionalValidation extends Enum[MetadataAdditionalValidation] {
   override val values: immutable.IndexedSeq[MetadataAdditionalValidation] = findValues
 }
 
+// NOTE: Please note that any value added here once must be retained throughout for schema to evolve.
 object SchemaAdditionalValidation extends Enum[SchemaAdditionalValidation] {
 
   case object defaultInRequiredField extends SchemaAdditionalValidation

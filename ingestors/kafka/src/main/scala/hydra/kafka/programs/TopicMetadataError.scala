@@ -22,8 +22,8 @@ object TopicMetadataError {
     override def message: String = s"Field 'replacementTopics' is required when the topic '$topic' is being deprecated!"
   }
 
-  case class InvalidTopicFormatError(topic: String) extends TopicMetadataError {
-    override def message: String = s"$topic : ${Subject.invalidFormat}"
+  case class SelfRefReplacementTopicsError(topic: String) extends TopicMetadataError {
+    override def message: String = s"A non-deprecated topic '$topic' pointing to itself in replacementTopics is not useful!"
   }
 
   case class TopicDoesNotExist(topic: String) extends TopicMetadataError {
