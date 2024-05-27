@@ -22,7 +22,7 @@ object TopicMetadataError {
     override def message: String = s"Field 'replacementTopics' is required when the topic '$topic' is being deprecated!"
   }
 
-  case class ReplacementTopicsPointingToSelfWithoutBeingDeprecated(topic: String) extends TopicMetadataError {
+  case class SelfRefReplacementTopicsError(topic: String) extends TopicMetadataError {
     override def message: String = s"A non-deprecated topic '$topic' pointing to itself in replacementTopics is not useful!"
   }
 

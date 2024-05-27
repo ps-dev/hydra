@@ -25,7 +25,7 @@ object TopicMetadataValidator {
         validateTopicsExist(request.replacementTopics, kafkaUtils),
         validateTopicsExist(request.previousTopics, kafkaUtils),
         validateDeprecatedTopicHasReplacementTopic(request.deprecated.contains(true), request.replacementTopics, schema.subject),
-        validateTopicNotDeprecatedShouldNotPointToSelfInReplacementTopics(request.deprecated.contains(true), request.replacementTopics, schema.subject),
+        validateNonDepSelfRefReplacementTopics(request.deprecated.contains(true), request.replacementTopics, schema.subject),
         validatePreviousTopicsCannotPointItself(request.previousTopics, schema.subject)
       )
     )
@@ -101,14 +101,14 @@ object TopicMetadataValidator {
     }
   }
 
-  private def validateTopicNotDeprecatedShouldNotPointToSelfInReplacementTopics(deprecated: Boolean,
-                                                         replacementTopics: Option[List[String]],
-                                                         topic: String): Try[ValidationResponse] = {
+  private def validateNonDepSelfRefReplacementTopics(deprecated: Boolean,
+                                                     replacementTopics: Option[List[String]],
+                                                     topic: String): Try[ValidationResponse] = {
     val topicNotDeprecatedDoesNotPointToSelf = if (!deprecated) replacementTopics.forall(!_.contains(topic)) else true
     if (topicNotDeprecatedDoesNotPointToSelf) {
       Success(Valid)
     } else {
-      val errorMessage = TopicMetadataError.ReplacementTopicsPointingToSelfWithoutBeingDeprecated(topic).message
+      val errorMessage = TopicMetadataError.SelfRefReplacementTopicsError(topic).message
       Failure(ValidatorException(Seq(errorMessage)))
     }
   }

@@ -2359,7 +2359,7 @@ class CreateTopicProgramSpec extends AsyncFreeSpec with Matchers with IOSuite {
       val request = topicMetadataRequest.copy(replacementTopics = topics)
 
       testFailure(request,
-        TopicMetadataError.ReplacementTopicsPointingToSelfWithoutBeingDeprecated(currentTopic),
+        TopicMetadataError.SelfRefReplacementTopicsError(currentTopic),
         Subject.createValidated(currentTopic).get,
         isCurrentTopicExisting = true)
     }

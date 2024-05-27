@@ -450,7 +450,7 @@ final class BootstrapEndpointV2Spec
       ).toJson.compactPrint
 
       testFailure(request,
-        TopicMetadataError.ReplacementTopicsPointingToSelfWithoutBeingDeprecated(currentTopic).message,
+        TopicMetadataError.SelfRefReplacementTopicsError(currentTopic).message,
         preExistingTopics = List(currentTopic),
         currentTopicName = Some(currentTopic)
       )

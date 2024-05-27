@@ -18,7 +18,7 @@ class TopicMetadataV2Validator[F[_] : Sync](metadataAlgebra: MetadataAlgebra[F],
       _                     <- validateTopicsExist(request.replacementTopics)
       _                     <- validateTopicsExist(request.previousTopics)
       _                     <- validateDeprecatedTopicHasReplacementTopic(request.deprecated, request.replacementTopics, subject.value)
-      _                     <- validateTopicNotDeprecatedShouldNotPointToSelfInReplacementTopics(request.deprecated, request.replacementTopics, subject.value)
+      _                     <- validateNonDepSelfRefReplacementTopics(request.deprecated, request.replacementTopics, subject.value)
       _                     <- validatePreviousTopicsCannotPointItself(request.previousTopics, subject.value)
       additionalValidations <- new AdditionalValidationUtil(
         isExistingTopic = metadata.isDefined,
@@ -81,11 +81,11 @@ class TopicMetadataV2Validator[F[_] : Sync](metadataAlgebra: MetadataAlgebra[F],
     resultOf(validate(hasReplacementTopicsIfDeprecated, TopicMetadataError.ReplacementTopicsMissingError(topic)))
   }
 
-  private def validateTopicNotDeprecatedShouldNotPointToSelfInReplacementTopics(deprecated: Boolean,
-                                                                                replacementTopics: Option[List[String]],
-                                                                                topic: String): F[Unit] = {
+  private def validateNonDepSelfRefReplacementTopics(deprecated: Boolean,
+                                                     replacementTopics: Option[List[String]],
+                                                     topic: String): F[Unit] = {
     val topicNotDeprecatedDoesNotPointToSelf = if (!deprecated) replacementTopics.forall(!_.contains(topic)) else true
-    resultOf(validate(topicNotDeprecatedDoesNotPointToSelf, TopicMetadataError.ReplacementTopicsPointingToSelfWithoutBeingDeprecated(topic)))
+    resultOf(validate(topicNotDeprecatedDoesNotPointToSelf, TopicMetadataError.SelfRefReplacementTopicsError(topic)))
   }
 
   private def validatePreviousTopicsCannotPointItself(maybeTopics: Option[List[String]], currentTopic: String): F[Unit] = {
