@@ -1,9 +1,8 @@
 package hydra.kafka.services
 
-import hydra.common.validation.MetadataAdditionalValidation
 import hydra.core.marshallers.{GenericSchema, TopicMetadataRequest}
-import hydra.kafka.model.TopicMetadata
 import hydra.kafka.programs.TopicMetadataError
+import hydra.kafka.util.KafkaUtils
 
 import scala.util.{Failure, Success, Try}
 
@@ -19,14 +18,15 @@ object TopicMetadataValidator {
       validFormat
     )
 
-  def validate(metadataRequest: TopicMetadataRequest, schema: GenericSchema, metadataMap: Map[String, TopicMetadata]): Try[ValidationResponse] =
+  def validate(request: TopicMetadataRequest, schema: GenericSchema, kafkaUtils: KafkaUtils): Try[ValidationResponse] =
     mergeValidationResponses(
       List(
         validateSubject(Option(schema)),
-        validateTopicsExist(metadataRequest.replacementTopics, metadataMap),
-        validateTopicsExist(metadataRequest.previousTopics, metadataMap),
-        validatePreviousTopicsCannotPointItself(metadataRequest.previousTopics, schema.subject),
-        validateAdditional(metadataRequest, schema.subject),
+        validateTopicsExist(request.replacementTopics, kafkaUtils),
+        validateTopicsExist(request.previousTopics, kafkaUtils),
+        validateDeprecatedTopicHasReplacementTopic(request.deprecated.contains(true), request.replacementTopics, schema.subject),
+        validateTopicNotDeprecatedShouldNotPointToSelfInReplacementTopics(request.deprecated.contains(true), request.replacementTopics, schema.subject),
+        validatePreviousTopicsCannotPointItself(request.previousTopics, schema.subject)
       )
     )
 
@@ -89,28 +89,27 @@ object TopicMetadataValidator {
     }
   }
 
-  private def validateAdditional(metadataRequest: TopicMetadataRequest, topic: String): Try[ValidationResponse] = {
-    val invalidReasons = metadataRequest.additionalValidations.getOrElse(Nil).collect {
-      case MetadataAdditionalValidation.replacementTopics =>
-        validateDeprecatedTopicHasReplacementTopic(metadataRequest.deprecated.contains(true), metadataRequest.replacementTopics, topic)
-    }.collect {
-      case Invalid(reason) => reason
-    }
-
-    if (invalidReasons.nonEmpty) {
-      Failure(ValidatorException(invalidReasons))
-    }
-    else {
+  private def validateDeprecatedTopicHasReplacementTopic(deprecated: Boolean,
+                                                         replacementTopics: Option[List[String]],
+                                                         topic: String): Try[ValidationResponse] = {
+    val isDeprecatedWithReplacementTopic = if (deprecated) replacementTopics.exists(_.nonEmpty) else true
+    if (isDeprecatedWithReplacementTopic) {
       Success(Valid)
+    } else {
+      val errorMessage = TopicMetadataError.ReplacementTopicsMissingError(topic).message
+      Failure(ValidatorException(Seq(errorMessage)))
     }
   }
 
-  def validateDeprecatedTopicHasReplacementTopic(deprecated: Boolean, replacementTopics: Option[List[String]], topic: String): ValidationResponse = {
-    val isDeprecatedWithReplacementTopic = if (deprecated) replacementTopics.exists(_.nonEmpty) else true
-    if (isDeprecatedWithReplacementTopic) {
-      Valid
+  private def validateTopicNotDeprecatedShouldNotPointToSelfInReplacementTopics(deprecated: Boolean,
+                                                         replacementTopics: Option[List[String]],
+                                                         topic: String): Try[ValidationResponse] = {
+    val topicNotDeprecatedDoesNotPointToSelf = if (!deprecated) replacementTopics.forall(!_.contains(topic)) else true
+    if (topicNotDeprecatedDoesNotPointToSelf) {
+      Success(Valid)
     } else {
-      Invalid(TopicMetadataError.ReplacementTopicsMissingError(topic).message)
+      val errorMessage = TopicMetadataError.ReplacementTopicsPointingToSelfWithoutBeingDeprecated(topic).message
+      Failure(ValidatorException(Seq(errorMessage)))
     }
   }
 
@@ -122,8 +121,8 @@ object TopicMetadataValidator {
       case _ => Success(Valid)
     }
 
-  private def validateTopicsExist(maybeTopics: Option[List[String]], metadataMap: Map[String, TopicMetadata]): Try[ValidationResponse] =
-    maybeTopics.map(areTopicsInMetadataMap(_, metadataMap)).getOrElse(Success(Valid))
+  private def validateTopicsExist(maybeTopics: Option[List[String]], kafkaUtils: KafkaUtils): Try[ValidationResponse] =
+    maybeTopics.map(doTopicsExist(_, kafkaUtils)).getOrElse(Success(Valid))
 
   private def validatePreviousTopicsCannotPointItself(maybeTopics: Option[List[String]], currentTopic: String): Try[ValidationResponse] =
     maybeTopics match {
@@ -131,9 +130,9 @@ object TopicMetadataValidator {
       case _                                             => Success(Valid)
     }
 
-  private def areTopicsInMetadataMap(topics: List[String], metadataMap: Map[String, TopicMetadata]): Try[ValidationResponse] = {
+  private def doTopicsExist(topics: List[String], kafkaUtils: KafkaUtils): Try[ValidationResponse] = {
     val notExistingTopics = topics.collect {
-      case topic if !metadataMap.contains(topic) => s"Topic '$topic' does not exist within DVS!"
+      case topic if !kafkaUtils.topicExists(topic).get => s"Topic '$topic' does not exist!"
     }
 
     if (notExistingTopics.nonEmpty) {

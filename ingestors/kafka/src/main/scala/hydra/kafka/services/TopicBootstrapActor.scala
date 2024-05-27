@@ -11,7 +11,6 @@ import hydra.common.config.ConfigSupport
 import ConfigSupport._
 import hydra.common.config.KafkaConfigUtils.KafkaClientSecurityConfig
 import hydra.common.config.KafkaConfigUtils.kafkaSecurityEmptyConfig
-import hydra.common.validation.MetadataAdditionalValidation
 import hydra.core.akka.SchemaRegistryActor.{RegisterSchemaRequest, RegisterSchemaResponse}
 import hydra.core.ingest.{HydraRequest, RequestParams}
 import hydra.core.marshallers.{GenericSchema, HydraJsonSupport, StreamType, TopicMetadataRequest}
@@ -23,12 +22,10 @@ import hydra.kafka.services.StreamsManagerActor.{GetMetadata, GetMetadataRespons
 import hydra.kafka.util.KafkaUtils
 import hydra.kafka.util.KafkaUtils.TopicDetails
 
-import scala.collection.JavaConverters._
 import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.io.Source
 import scala.util._
-import spray.json.DefaultJsonProtocol
 
 class TopicBootstrapActor(
                            schemaRegistryActor: ActorRef,
@@ -108,10 +105,10 @@ class TopicBootstrapActor(
             .flatMap { metadataResponse =>
               val (topicMetadataRequest, metadata) = metadataResponse.metadata.get(schema.subject) match {
                 case Some(topicMetadata) => (request, Some(topicMetadata))
-                case None                => (request.copy(additionalValidations = Some(MetadataAdditionalValidation.values.toList)), None)
+                case None                => (request, None)
               }
 
-              TopicMetadataValidator.validate(topicMetadataRequest, schema, metadataResponse.metadata) match {
+              TopicMetadataValidator.validate(topicMetadataRequest, schema, kafkaUtils) match {
                 case Success(_) =>
                   executeEndpoint(topicMetadataRequest, metadata)
                 case Failure(ex: ValidatorException) =>

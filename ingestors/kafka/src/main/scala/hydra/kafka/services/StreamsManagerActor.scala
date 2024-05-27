@@ -2,7 +2,6 @@ package hydra.kafka.services
 
 import java.net.InetAddress
 import java.util.UUID
-
 import akka.NotUsed
 import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props}
 import akka.kafka.scaladsl.Consumer
@@ -25,8 +24,6 @@ import org.joda.time.format.ISODateTimeFormat
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
-import spray.json._
-import DefaultJsonProtocol._
 
 class StreamsManagerActor(
     bootstrapKafkaConfig: Config,
@@ -129,6 +126,16 @@ object StreamsManagerActor {
     c.getStringOpt("metadata-topic-name")
       .getOrElse("_hydra.metadata.topic")
 
+  private def toOptionList(record: GenericRecord, fieldName: String): Option[List[String]] =
+    if (record.hasField(fieldName) && record.get(fieldName) != null) {
+      Option(record.get(fieldName).toString) map { value =>
+        val trimmed = value.trim.stripPrefix("[").stripSuffix("]")
+        trimmed.split(",").map(_.trim).toList
+      }
+    } else {
+      None
+    }
+
   private[services] def createMetadataStream[K, V](
       config: Config,
       kafkaClientSecurityConfig: KafkaClientSecurityConfig,
@@ -165,12 +172,8 @@ object StreamsManagerActor {
             record.get("streamType").toString,
             record.get("derived").toString.toBoolean,
             Try(Option(record.get("deprecated"))).toOption.flatten.map(_.toString.toBoolean),
-            Try(Option(record.get("replacementTopics"))).toOption.flatten map { rt =>
-              rt.toString.parseJson.convertTo[List[String]]
-            },
-            Try(Option(record.get("previousTopics"))).toOption.flatten map { pt =>
-              pt.toString.parseJson.convertTo[List[String]]
-            },
+            toOptionList(record, "replacementTopics"),
+            toOptionList(record, "previousTopics"),
             record.get("dataClassification").toString,
             Try(Option(record.get("subDataClassification"))).toOption.flatten.map(_.toString),
             record.get("contact").toString,

@@ -25,7 +25,7 @@ case class KafkaUtils(config: Map[String, AnyRef], kafkaClientSecurityConfig: Ka
   }
 
   def topicExists(name: String): Try[Boolean] = withClient { c =>
-    c.listTopics().names.get.asScala.exists(s => s == name)
+    c.listTopics().names.get.asScala.contains(name)
   }
 
   def topicNames(): Try[Seq[String]] =

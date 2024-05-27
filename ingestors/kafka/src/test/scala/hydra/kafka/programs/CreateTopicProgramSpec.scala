@@ -255,6 +255,7 @@ class CreateTopicProgramSpec extends AsyncFreeSpec with Matchers with IOSuite {
       val request        = createTopicMetadataRequest(keySchema, valueSchema, deprecated = true, deprecatedDate = Some(Instant.now))
         .copy(replacementTopics = Some(List("dvs.subject")))
       val updatedRequest = createTopicMetadataRequest(keySchema, valueSchema, "updated@email.com", deprecated = true)
+        .copy(replacementTopics = Some(List("dvs.subject")))
       for {
         publishTo   <- Ref[IO].of(Map.empty[String, (GenericRecord, Option[GenericRecord], Option[Headers])])
         consumeFrom <- Ref[IO].of(Map.empty[Subject, TopicMetadataContainer])
@@ -274,6 +275,7 @@ class CreateTopicProgramSpec extends AsyncFreeSpec with Matchers with IOSuite {
     "ingest updated metadata into the metadata topic - verify deprecated date is updated when starting with None" in {
       val request = createTopicMetadataRequest(keySchema, valueSchema)
       val updatedRequest = createTopicMetadataRequest(keySchema, valueSchema, "updated@email.com", deprecated = true)
+        .copy(replacementTopics = Some(List("dvs.subject")))
       for {
         publishTo   <- Ref[IO].of(Map.empty[String, (GenericRecord, Option[GenericRecord], Option[Headers])])
         consumeFrom <- Ref[IO].of(Map.empty[Subject, TopicMetadataContainer])
@@ -2351,6 +2353,17 @@ class CreateTopicProgramSpec extends AsyncFreeSpec with Matchers with IOSuite {
       testSuccess(request, replacementTopics = topics, createReplacementAndPreviousTopics = true)
     }
 
+    "throw error when a topic NOT being deprecated points to itself in replacementTopics" in {
+      val currentTopic = "dvs.subject"
+      val topics = Some(List(currentTopic))
+      val request = topicMetadataRequest.copy(replacementTopics = topics)
+
+      testFailure(request,
+        TopicMetadataError.ReplacementTopicsPointingToSelfWithoutBeingDeprecated(currentTopic),
+        Subject.createValidated(currentTopic).get,
+        isCurrentTopicExisting = true)
+    }
+
     "throw error when previousTopics contains all non-existing topics" in {
       val previousTopics = List("dvs.test.not.existing", "incorrect.dvs.previous")
       val request = topicMetadataRequest.copy(previousTopics = Some(previousTopics))
@@ -2431,9 +2444,14 @@ class CreateTopicProgramSpec extends AsyncFreeSpec with Matchers with IOSuite {
       }
     }
 
-    def testFailure(request: TopicMetadataV2Request, error: TopicMetadataError, currentTopic: Subject = subject) = {
+    def testFailure(request: TopicMetadataV2Request, error: TopicMetadataError, currentTopic: Subject = subject, isCurrentTopicExisting: Boolean = false) = {
       val result = for {
         ts <- initTestServices()
+        _ <- if (isCurrentTopicExisting) {
+          ts.program.createTopic(currentTopic, request.copy(deprecated = false, replacementTopics = None, previousTopics = None), topicDetails)
+        } else {
+          IO.pure()
+        }
         _ <- ts.program.createTopic(currentTopic, request, topicDetails)
       } yield ()
 
