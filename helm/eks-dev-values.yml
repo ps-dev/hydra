@@ -37,10 +37,10 @@ ingress:
 
 resources:
   limits:
-    memory: 14Gi
+    memory: 20Gi
   requests:
     cpu: 250m
-    memory: 4Gi
+    memory: 10Gi
 
 tolerations: []
 
