@@ -25,6 +25,9 @@ import hydra.kafka.serializers.TopicMetadataV2Parser.IntentionallyUnimplemented
 import hydra.kafka.util.ConsumerGroupsOffsetConsumer
 import org.apache.avro.generic.GenericRecord
 import org.typelevel.log4cats.Logger
+import org.typelevel.log4cats.extras.Translate.logger
+
+import scala.concurrent.duration.{DurationInt, FiniteDuration}
 
 trait ConsumerGroupsAlgebra[F[_]] {
   def getConsumersForTopic(topicName: String): F[TopicConsumers]
@@ -161,6 +164,11 @@ object ConsumerGroupsAlgebra {
       consumerGroupsOffsetFacade <- Ref[F].of(ConsumerGroupsOffsetFacade.empty)
     } yield new ConsumerGroupsAlgebra[F] {
 
+
+//      fs2.Stream
+//        .awakeEvery[F](1.minutes)
+//        .evalMap(_ => getOffsetsForInternalCGTopic).compile.drain
+
       override def getConsumersForTopic(topicName: String): F[TopicConsumers] =
         consumerGroupsStorageFacade.get.flatMap(a => addStateToTopicConsumers(a.getConsumersForTopicName(topicName)))
 
@@ -194,7 +202,7 @@ object ConsumerGroupsAlgebra {
 
           _ <- notificationsService.send(NotificationScope(NotificationLevel.Warn),
             NotificationMessage(
-              s"""Total Offset Lag on ${dvsConsumersTopic} is ${totalLag.toString} ,
+              s"""For Prod - Total Offset Lag on ${dvsConsumersTopic} is ${totalLag.toString} ,
                  | Lag percentage is ${lagPercentage.toString} ,
                  | Total_Group_Offset is ${totalGroupOffset} ,
                  | Total_Largest_Offset is ${totalLargestOffset}""".stripMargin)
