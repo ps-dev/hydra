@@ -34,6 +34,19 @@ ingress:
   path: /
   pathType: Prefix
 
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 80
+  initialDelaySeconds: 15
+  periodSeconds: 60
+
+readinessProbe:
+  httpGet:
+    path: /health
+    port: 80
+  initialDelaySeconds: 10
+  periodSeconds: 5
 
 resources:
   limits:
