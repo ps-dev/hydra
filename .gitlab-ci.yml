@@ -172,7 +172,7 @@ deploy_staging:
   extends: .saltDeploy
   when: manual
   environment:
-      name: staging
+    name: staging
   before_script:
     - cat $SALT_PILLAR
     - sed -i "s/latest/$BUILD_VERSION/" $SALT_PILLAR
@@ -203,7 +203,9 @@ deploy_production:
   extends: .saltDeploy
   when: manual
   environment:
-      name: production
+    name: production
+  only:
+    - master
   before_script:
     - cat $SALT_PILLAR
     - sed -i "s/latest/$BUILD_VERSION/" $SALT_PILLAR
@@ -222,6 +224,8 @@ slack:production:
   stage: notify
   extends: .notify-all
   when: on_success
+  only:
+    - master
   needs: ['deploy_production']
   before_script:
     - echo "Sending notification to slack"
