@@ -25,7 +25,7 @@ variables:
   BOUNDED_CONTEXT_STAGING: adapt-dvs
   BOUNDED_CONTEXT_PROD: adapt-dvs
   ENV: ${CI_JOB_STAGE} 
-  SERVICE_NAME: "dev-hydra"
+  SERVICE_NAME: "dev-hydra-publish"
   SLACK_ICON_EMOJI: ":gitlab:"
   SLACK_CHANNEL: '#data-platform-alerts'
   SLACK_MESSAGE: |
