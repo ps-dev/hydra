@@ -186,7 +186,7 @@ class ConsumerGroupsAlgebraSpec extends AnyWordSpecLike with Matchers with ForAl
         }.unsafeRunSync()
       }
 
-      "getOffsetsForInternalCGTopic test to verify no lag with commit offsets as false" in {
+      "test getLagOnDVSConsumerTopic to verify no lag with commit offsets as false" in {
         val (key1, value1) = getGenericRecords(dvsConsumerTopic.value, "abc", "123")
 
         kafkaClient.publishMessage((key1, Some(value1), None), dvsConsumerTopic.value).unsafeRunSync()
@@ -194,10 +194,10 @@ class ConsumerGroupsAlgebraSpec extends AnyWordSpecLike with Matchers with ForAl
         kafkaClient.consumeMessages(dvsConsumerTopic.value, consumer1, commitOffsets = false)
           .take(1).compile.last.unsafeRunSync() shouldBe (key1, value1.some, None).some
 
-        cga.getOffsetsForInternalCGTopic shouldBe ( PartitionOffsetsWithTotalLag(1,1,0,0,_))
+        cga.getLagOnDVSConsumerTopic shouldBe ( PartitionOffsetsWithTotalLag(1,1,0,0,_))
       }
 
-      "getOffsetsForInternalCGTopic test to verify some lag with commit offsets as false" in {
+      "test getLagOnDVSConsumerTopic to verify some lag with commit offsets as false" in {
         val (key1, value1) = getGenericRecords(dvsConsumerTopic.value, "abc", "123")
         val (key2, value2) = getGenericRecords(dvsConsumerTopic.value, "abcd", "1234")
 
@@ -207,7 +207,7 @@ class ConsumerGroupsAlgebraSpec extends AnyWordSpecLike with Matchers with ForAl
         kafkaClient.consumeMessages(dvsConsumerTopic.value, consumer1, commitOffsets = false)
           .take(1).compile.last.unsafeRunSync() shouldBe (key1, value1.some, None).some
 
-        cga.getOffsetsForInternalCGTopic shouldBe (PartitionOffsetsWithTotalLag(2, 1, 1, 50, _))
+        cga.getLagOnDVSConsumerTopic shouldBe (PartitionOffsetsWithTotalLag(2, 1, 1, 50, _))
       }
 
     }

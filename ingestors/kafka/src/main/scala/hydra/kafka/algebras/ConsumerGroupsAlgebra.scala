@@ -36,8 +36,6 @@ trait ConsumerGroupsAlgebra[F[_]] {
 
   def getAllConsumers: F[List[ConsumerTopics]]
 
-  def getOffsetsForInternalCGTopic: F[PartitionOffsetsWithTotalLag]
-
   def getAllConsumersByTopic: F[List[TopicConsumers]]
 
   def startConsumer: F[Unit]
@@ -49,6 +47,8 @@ trait ConsumerGroupsAlgebra[F[_]] {
   def consumerGroupIsActive(str: String): F[(Boolean, String)]
 
   def getUniquePerNodeConsumerGroup: String
+
+  def getLagOnDVSConsumerTopic: F[PartitionOffsetsWithTotalLag]
 }
 
 final case class TestConsumerGroupsAlgebra(consumerGroupMap: Map[TopicConsumerKey, (TopicConsumerValue, String)]) extends ConsumerGroupsAlgebra[IO] {
@@ -101,9 +101,9 @@ final case class TestConsumerGroupsAlgebra(consumerGroupMap: Map[TopicConsumerKe
 
   override def getUniquePerNodeConsumerGroup: String = "uniquePerNodeConsumerGroup"
 
-  override def getOffsetsForInternalCGTopic: IO[PartitionOffsetsWithTotalLag] = {
+  override def getLagOnDVSConsumerTopic: IO[PartitionOffsetsWithTotalLag] = {
     IO.pure(PartitionOffsetsWithTotalLag(60, 30, 30, 50,
-      List(PartitionOffset(1,10,20,10), PartitionOffset(2,10,20,10), PartitionOffset(3,10,20,10))
+      List(PartitionOffset(1, 10, 20, 10), PartitionOffset(2, 10, 20, 10), PartitionOffset(3, 10, 20, 10))
     ))
   }
 }
@@ -146,15 +146,8 @@ object ConsumerGroupsAlgebra {
                                                                    ) (implicit  notificationsService: InternalNotificationSender[F]): F[ConsumerGroupsAlgebra[F]] = {
 
 
-    val parentStream = kafkaClientAlgebra.consumeSafelyWithOffsetInfo(dvsConsumersTopic.value, uniquePerNodeConsumerGroup, commitOffsets = false)
-
-    val offsetStream: fs2.Stream[F, Either[Throwable, (Partition, Offset)]] = parentStream.map(x => {
-      x.map(_._2)
-    })
-
-    val dvsConsumersStream: fs2.Stream[F, Record] = {
-      parentStream
-        .map(_.map(_._1))
+    val dvsConsumersStream: fs2.Stream[F, (Record, (Partition, Offset))] = {
+      kafkaClientAlgebra.consumeSafelyWithOffsetInfo(dvsConsumersTopic.value, uniquePerNodeConsumerGroup, commitOffsets = false)
         //Ignore records with errors
         .collect { case Right(value) => value }
     }
@@ -164,15 +157,10 @@ object ConsumerGroupsAlgebra {
       consumerGroupsOffsetFacade <- Ref[F].of(ConsumerGroupsOffsetFacade.empty)
     } yield new ConsumerGroupsAlgebra[F] {
 
-
-//      fs2.Stream
-//        .awakeEvery[F](1.minutes)
-//        .evalMap(_ => getOffsetsForInternalCGTopic).compile.drain
-
       override def getConsumersForTopic(topicName: String): F[TopicConsumers] =
         consumerGroupsStorageFacade.get.flatMap(a => addStateToTopicConsumers(a.getConsumersForTopicName(topicName)))
 
-      override def getOffsetsForInternalCGTopic: F[PartitionOffsetsWithTotalLag] = {
+      override def getLagOnDVSConsumerTopic: F[PartitionOffsetsWithTotalLag] = {
 
         def getValueFromOffsetMap(partition: Int, offsetMap: Map[Partition, Offset]): Long =
           offsetMap.get(partition) match {
@@ -181,7 +169,7 @@ object ConsumerGroupsAlgebra {
           }
 
         for {
-          groupOffsetMap <- consumerGroupsOffsetFacade.get.map(_.getAllPartitionOffset())
+          groupOffsetMap <- consumerGroupsOffsetFacade.get.map(_.getOffsets())
 
           partitionOffsetMapWithLag <- kAA.getLatestOffsets(dvsConsumersTopic.value)
             .map(_.toList
@@ -200,15 +188,7 @@ object ConsumerGroupsAlgebra {
 
           lagPercentage: Double = (totalLag.toDouble / totalLargestOffset.toDouble) * 100
 
-          _ <- notificationsService.send(NotificationScope(NotificationLevel.Warn),
-            NotificationMessage(
-              s"""For Prod - Total Offset Lag on ${dvsConsumersTopic} is ${totalLag.toString} ,
-                 | Lag percentage is ${lagPercentage.toString} ,
-                 | Total_Group_Offset is ${totalGroupOffset} ,
-                 | Total_Largest_Offset is ${totalLargestOffset}""".stripMargin)
-          )
-        } yield
-          PartitionOffsetsWithTotalLag(totalLargestOffset, totalGroupOffset, totalLag, lagPercentage, partitionOffsetMapWithLag)
+        } yield PartitionOffsetsWithTotalLag(totalLargestOffset, totalGroupOffset, totalLag, lagPercentage, partitionOffsetMapWithLag)
       }
 
       private def addStateToTopicConsumers(topicConsumers: TopicConsumers): F[TopicConsumers] = {
@@ -232,12 +212,18 @@ object ConsumerGroupsAlgebra {
 
       override def startConsumer: F[Unit] = {
         for {
-          _ <- Concurrent[F].start(consumeDVSConsumersTopicIntoCache(dvsConsumersStream, consumerGroupsStorageFacade))
+          _ <- Concurrent[F].start(consumeDVSConsumersTopicIntoCache(dvsConsumersStream, consumerGroupsStorageFacade, consumerGroupsOffsetFacade))
           _ <- Concurrent[F].start {
             ConsumerGroupsOffsetConsumer.start(kafkaClientAlgebra, kAA, sra, uniquePerNodeConsumerGroup, consumerOffsetsOffsetsTopicConfig,
               kafkaInternalTopic, dvsConsumersTopic, bootstrapServers, commonConsumerGroup, kafkaClientSecurityConfig)
           }
-          _ <- Concurrent[F].start(consumeOffsetStreamIntoCache(offsetStream, consumerGroupsOffsetFacade))
+          _ <- fs2.Stream.awakeEvery[F](1.minutes).evalMap(_ => getLagOnDVSConsumerTopic.flatMap(
+              lagInfo => Logger[F].info(
+                s"""Total Offset Lag on ${dvsConsumersTopic} = ${lagInfo.totalLag.toString} ,
+                    Lag percentage = ${lagInfo.lagPercentage.toString} ,
+                    Total_Group_Offset = ${lagInfo.totalGroupOffset} ,
+                    Total_Largest_Offset = ${lagInfo.totalLargestOffset}"""
+              ))).compile.drain
         } yield ()
       }
 
@@ -273,36 +259,25 @@ object ConsumerGroupsAlgebra {
   }
 
   private def consumeDVSConsumersTopicIntoCache[F[_] : ContextShift : ConcurrentEffect : Timer : Logger](
-                                                                                                          dvsConsumersStream: fs2.Stream[F, Record],
-                                                                                                          consumerGroupsStorageFacade: Ref[F, ConsumerGroupsStorageFacade]
+                                                                                                          dvsConsumersStream:  fs2.Stream[F, (Record, (Partition, Offset))],
+                                                                                                          consumerGroupsStorageFacade: Ref[F, ConsumerGroupsStorageFacade],
+                                                                                                          consumerGroupsOffsetFacade: Ref[F, ConsumerGroupsOffsetFacade],
                                                                                                         )(implicit notificationsService: InternalNotificationSender[F]): F[Unit] = {
-    dvsConsumersStream.evalTap { case (key, value, _) =>
-      TopicConsumer.decode[F](key, value).flatMap {
+    dvsConsumersStream.evalTap {
+      case ((key, value, _),(partition, offset)) =>
+        TopicConsumer.decode[F](key, value).flatMap {
         case (topicKey, topicValue) =>
           topicValue match {
             case Some(tV) =>
-              consumerGroupsStorageFacade.update(_.addConsumerGroup(topicKey, tV))
+              consumerGroupsStorageFacade.update(_.addConsumerGroup(topicKey, tV)) *> consumerGroupsOffsetFacade.update(_.addOffset(partition, offset))
             case None =>
-              consumerGroupsStorageFacade.update(_.removeConsumerGroup(topicKey))
+              consumerGroupsStorageFacade.update(_.removeConsumerGroup(topicKey)) *> consumerGroupsOffsetFacade.update(_.addOffset(partition, offset))
           }
       }.recoverWith {
         case e => Logger[F].error(e)("Error in ConsumergroupsAlgebra consumer")
       }
     }
       .makeRetryableWithNotification(Infinite, "ConsumerGroupsAlgebra")
-      .compile.drain
-  }
-
-  private def consumeOffsetStreamIntoCache[F[_] : ContextShift : ConcurrentEffect : Timer : Logger](
-                                                                                                          offsetStream: fs2.Stream[F, Either[Throwable, (Partition, Offset)]],
-                                                                                                          consumerGroupsOffsetFacade: Ref[F, ConsumerGroupsOffsetFacade]
-                                                                                                        )(implicit notificationsService: InternalNotificationSender[F]): F[Unit] = {
-
-    offsetStream.evalTap {
-      case Right((partition, offset))  => consumerGroupsOffsetFacade.update(_.addOffset(partition, offset))
-      case _ => Logger[F].error("Error in consumeOffsetStreamIntoCache")
-    }
-      .makeRetryableWithNotification(Infinite, "offsetStream")
       .compile.drain
   }
 }
@@ -343,7 +318,7 @@ private case class ConsumerGroupsOffsetFacade(offsetMap: Map[Partition, Offset])
   def addOffset(key: Partition, value: Offset): ConsumerGroupsOffsetFacade =
     this.copy(this.offsetMap + (key -> value))
 
-  def getAllPartitionOffset(): Map[Partition, Offset] =
+  def getOffsets(): Map[Partition, Offset] =
     this.offsetMap
 
   def removeOffset(key: Partition): ConsumerGroupsOffsetFacade =
