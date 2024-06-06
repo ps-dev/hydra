@@ -3,7 +3,7 @@ version: '3.1'
 
 services:
   zookeeper:
-    image: confluentinc/cp-zookeeper:5.0.0
+    image: confluentinc/cp-zookeeper:5.3.1
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
@@ -13,7 +13,7 @@ services:
       - 2181
 
   kafka:
-    image: confluentinc/cp-kafka:5.0.0
+    image: confluentinc/cp-kafka:5.3.1
     depends_on:
       - zookeeper
     environment:
@@ -38,7 +38,7 @@ services:
       - 9999
 
   schema-registry:
-      image: confluentinc/cp-schema-registry:5.0.0
+      image: confluentinc/cp-schema-registry:5.3.1
       environment:
         SCHEMA_REGISTRY_KAFKASTORE_CONNECTION_URL: zookeeper:2181
         SCHEMA_REGISTRY_HOST_NAME: schema-registry
