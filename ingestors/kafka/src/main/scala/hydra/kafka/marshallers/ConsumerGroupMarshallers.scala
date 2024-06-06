@@ -5,7 +5,7 @@ import spray.json.{RootJsonFormat, _}
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import hydra.core.transport.AckStrategy
 import hydra.kafka.algebras.{ConsumerGroupsAlgebra, KafkaAdminAlgebra}
-import hydra.kafka.algebras.ConsumerGroupsAlgebra.{ConsumerTopics, DetailedConsumerGroup, DetailedTopicConsumers, PartitionOffset, PartitionOffsetsWithTotalLag, TopicConsumers}
+import hydra.kafka.algebras.ConsumerGroupsAlgebra.{ConsumerTopics, DetailedConsumerGroup, DetailedTopicConsumers, PartitionOffset, TopicConsumers}
 import hydra.kafka.algebras.KafkaAdminAlgebra.{LagOffsets, Offset, TopicAndPartition}
 import hydra.kafka.serializers.TopicMetadataV2Parser.IntentionallyUnimplemented
 
@@ -55,7 +55,6 @@ trait ConsumerGroupMarshallers extends DefaultJsonProtocol with SprayJsonSupport
 
     override def read(json: JsValue): ConsumerGroupsAlgebra.Consumer = throw IntentionallyUnimplemented
   }
-
 
   implicit val consumerTopicsFormat: RootJsonFormat[ConsumerTopics] = jsonFormat2(ConsumerTopics)
   implicit val topicConsumersFormat: RootJsonFormat[TopicConsumers] = jsonFormat2(TopicConsumers)
