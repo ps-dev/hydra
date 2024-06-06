@@ -56,19 +56,6 @@ trait ConsumerGroupMarshallers extends DefaultJsonProtocol with SprayJsonSupport
     override def read(json: JsValue): ConsumerGroupsAlgebra.Consumer = throw IntentionallyUnimplemented
   }
 
-  implicit object totalOffsetsWithLag extends RootJsonFormat[PartitionOffsetsWithTotalLag] {
-    override def write(partitionOffsetsWithTotalLag: PartitionOffsetsWithTotalLag): JsValue = JsObject(List(
-      Some("totalGroupOffset" -> JsNumber(partitionOffsetsWithTotalLag.totalGroupOffset)),
-      Some("totalLargestOffset" -> JsNumber(partitionOffsetsWithTotalLag.totalLargestOffset)),
-      Some("totalLag" -> JsNumber(partitionOffsetsWithTotalLag.totalLag)),
-      Some("lagPercentage" -> DoubleJsonFormat.write(partitionOffsetsWithTotalLag.lagPercentage)),
-      if (partitionOffsetsWithTotalLag.partitionOffsets.isEmpty) None
-      else Some(
-        "partitionOffsets" -> JsArray(partitionOffsetsWithTotalLag.partitionOffsets.sortBy(_.partition).map(partitionOffset.write).toVector)
-      )).flatten.toMap)
-
-    override def read(json: JsValue): PartitionOffsetsWithTotalLag = throw IntentionallyUnimplemented
-  }
 
   implicit val consumerTopicsFormat: RootJsonFormat[ConsumerTopics] = jsonFormat2(ConsumerTopics)
   implicit val topicConsumersFormat: RootJsonFormat[TopicConsumers] = jsonFormat2(TopicConsumers)
