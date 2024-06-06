@@ -1,20 +1,12 @@
 package hydra.kafka.algebras
 
-import cats.ApplicativeError
-
-import java.time.Instant
 import cats.effect.concurrent.Ref
 import cats.effect.{Concurrent, ConcurrentEffect, ContextShift, IO, Timer}
 import cats.implicits._
-import fs2.kafka._
 import hydra.avro.registry.SchemaRegistry
-import hydra.common.alerting.AlertProtocol.{NotificationMessage, NotificationScope}
-import hydra.common.alerting.{NotificationLevel, NotificationType}
-import hydra.common.alerting.sender.{InternalNotificationSender, NotificationSender}
+import hydra.common.alerting.sender.InternalNotificationSender
 import hydra.common.config.KafkaConfigUtils.KafkaClientSecurityConfig
-import hydra.kafka.algebras.ConsumerGroupsAlgebra.{Consumer, ConsumerTopics, DetailedConsumerGroup, DetailedTopicConsumers, PartitionOffset, TopicConsumers}
 import hydra.kafka.algebras.ConsumerGroupsAlgebra._
-import hydra.kafka.algebras.HydraTag.StringJsonFormat
 import hydra.kafka.algebras.KafkaClientAlgebra.{Offset, Partition, Record}
 import hydra.kafka.algebras.RetryableFs2Stream.RetryPolicy.Infinite
 import hydra.kafka.algebras.RetryableFs2Stream._
@@ -23,10 +15,9 @@ import hydra.kafka.model.TopicConsumer.{TopicConsumerKey, TopicConsumerValue}
 import hydra.kafka.model.TopicMetadataV2Request.Subject
 import hydra.kafka.serializers.TopicMetadataV2Parser.IntentionallyUnimplemented
 import hydra.kafka.util.ConsumerGroupsOffsetConsumer
-import org.apache.avro.generic.GenericRecord
 import org.typelevel.log4cats.Logger
-import org.typelevel.log4cats.extras.Translate.logger
 
+import java.time.Instant
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 
 trait ConsumerGroupsAlgebra[F[_]] {
@@ -48,7 +39,7 @@ trait ConsumerGroupsAlgebra[F[_]] {
 
   def getUniquePerNodeConsumerGroup: String
 
-  def getLagOnDVSConsumerTopic: F[PartitionOffsetsWithTotalLag]
+  def getLagOnDvsInternalCGTopic: F[PartitionOffsetsWithTotalLag]
 }
 
 final case class TestConsumerGroupsAlgebra(consumerGroupMap: Map[TopicConsumerKey, (TopicConsumerValue, String)]) extends ConsumerGroupsAlgebra[IO] {
@@ -101,7 +92,7 @@ final case class TestConsumerGroupsAlgebra(consumerGroupMap: Map[TopicConsumerKe
 
   override def getUniquePerNodeConsumerGroup: String = "uniquePerNodeConsumerGroup"
 
-  override def getLagOnDVSConsumerTopic: IO[PartitionOffsetsWithTotalLag] = {
+  override def getLagOnDvsInternalCGTopic: IO[PartitionOffsetsWithTotalLag] = {
     IO.pure(PartitionOffsetsWithTotalLag(60, 30, 30, 50,
       List(PartitionOffset(1, 10, 20, 10), PartitionOffset(2, 10, 20, 10), PartitionOffset(3, 10, 20, 10))
     ))
@@ -142,7 +133,8 @@ object ConsumerGroupsAlgebra {
                                                                      kafkaClientAlgebra: KafkaClientAlgebra[F],
                                                                      kAA: KafkaAdminAlgebra[F],
                                                                      sra: SchemaRegistry[F],
-                                                                     kafkaClientSecurityConfig: KafkaClientSecurityConfig
+                                                                     kafkaClientSecurityConfig: KafkaClientSecurityConfig,
+                                                                     lagPublishInterval: FiniteDuration
                                                                    ) (implicit  notificationsService: InternalNotificationSender[F]): F[ConsumerGroupsAlgebra[F]] = {
 
 
@@ -160,7 +152,7 @@ object ConsumerGroupsAlgebra {
       override def getConsumersForTopic(topicName: String): F[TopicConsumers] =
         consumerGroupsStorageFacade.get.flatMap(a => addStateToTopicConsumers(a.getConsumersForTopicName(topicName)))
 
-      override def getLagOnDVSConsumerTopic: F[PartitionOffsetsWithTotalLag] = {
+      override def getLagOnDvsInternalCGTopic: F[PartitionOffsetsWithTotalLag] = {
 
         def getValueFromOffsetMap(partition: Int, offsetMap: Map[Partition, Offset]): Long =
           offsetMap.get(partition) match {
@@ -217,7 +209,7 @@ object ConsumerGroupsAlgebra {
             ConsumerGroupsOffsetConsumer.start(kafkaClientAlgebra, kAA, sra, uniquePerNodeConsumerGroup, consumerOffsetsOffsetsTopicConfig,
               kafkaInternalTopic, dvsConsumersTopic, bootstrapServers, commonConsumerGroup, kafkaClientSecurityConfig)
           }
-          _ <- fs2.Stream.awakeEvery[F](1.minutes).evalMap(_ => getLagOnDVSConsumerTopic.flatMap(
+          _ <- fs2.Stream.awakeEvery[F](lagPublishInterval).evalMap(_ => getLagOnDvsInternalCGTopic.flatMap(
               lagInfo => Logger[F].info(
                 s"""Total Offset Lag on ${dvsConsumersTopic} = ${lagInfo.totalLag.toString} ,
                     Lag percentage = ${lagInfo.lagPercentage.toString} ,

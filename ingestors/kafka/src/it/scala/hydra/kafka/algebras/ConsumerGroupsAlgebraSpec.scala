@@ -72,7 +72,7 @@ class ConsumerGroupsAlgebraSpec extends AnyWordSpecLike with Matchers with ForAl
     kafkaClient <- KafkaClientAlgebra.live[IO](container.bootstrapServers, "https://schema-registry", schemaRegistry , kafkaSecurityEmptyConfig)
 
     consumerGroupAlgebra <- ConsumerGroupsAlgebra.make(internalKafkaConsumerTopic, dvsConsumerTopic, dvsInternalKafkaOffsetsTopic,
-      container.bootstrapServers, consumerGroup, consumerGroup, kafkaClient, kafkaAdmin, schemaRegistry, kafkaSecurityEmptyConfig)
+      container.bootstrapServers, consumerGroup, consumerGroup, kafkaClient, kafkaAdmin, schemaRegistry, kafkaSecurityEmptyConfig, 1.minutes)
     _ <- consumerGroupAlgebra.startConsumer
   } yield {
     runTests(consumerGroupAlgebra, schemaRegistry, kafkaClient, kafkaAdmin)
@@ -186,7 +186,7 @@ class ConsumerGroupsAlgebraSpec extends AnyWordSpecLike with Matchers with ForAl
         }.unsafeRunSync()
       }
 
-      "test getLagOnDVSConsumerTopic to verify no lag with commit offsets as false" in {
+      "test getLagOnInternalConsumerTopic to verify no lag with commit offsets as false" in {
         val (key1, value1) = getGenericRecords(dvsConsumerTopic.value, "abc", "123")
 
         kafkaClient.publishMessage((key1, Some(value1), None), dvsConsumerTopic.value).unsafeRunSync()
@@ -194,10 +194,10 @@ class ConsumerGroupsAlgebraSpec extends AnyWordSpecLike with Matchers with ForAl
         kafkaClient.consumeMessages(dvsConsumerTopic.value, consumer1, commitOffsets = false)
           .take(1).compile.last.unsafeRunSync() shouldBe (key1, value1.some, None).some
 
-        cga.getLagOnDVSConsumerTopic shouldBe ( PartitionOffsetsWithTotalLag(1,1,0,0,_))
+        cga.getLagOnDvsInternalCGTopic shouldBe ( PartitionOffsetsWithTotalLag(1,1,0,0,_))
       }
 
-      "test getLagOnDVSConsumerTopic to verify some lag with commit offsets as false" in {
+      "test getLagOnInternalConsumerTopic to verify some lag with commit offsets as false" in {
         val (key1, value1) = getGenericRecords(dvsConsumerTopic.value, "abc", "123")
         val (key2, value2) = getGenericRecords(dvsConsumerTopic.value, "abcd", "1234")
 
@@ -207,7 +207,7 @@ class ConsumerGroupsAlgebraSpec extends AnyWordSpecLike with Matchers with ForAl
         kafkaClient.consumeMessages(dvsConsumerTopic.value, consumer1, commitOffsets = false)
           .take(1).compile.last.unsafeRunSync() shouldBe (key1, value1.some, None).some
 
-        cga.getLagOnDVSConsumerTopic shouldBe (PartitionOffsetsWithTotalLag(2, 1, 1, 50, _))
+        cga.getLagOnDvsInternalCGTopic shouldBe (PartitionOffsetsWithTotalLag(2, 1, 1, 50, _))
       }
 
     }
