@@ -203,7 +203,9 @@ class TopicBootstrapActor(
         .map(_.createdDate)
         .getOrElse(org.joda.time.DateTime.now()),
       topicMetadataRequest.notificationUrl,
-      None // Never pick additionalValidations from the request.
+      new AdditionalValidationUtil(
+        isExistingTopic = existingTopicMetadata.isDefined,
+        currentAdditionalValidations = existingTopicMetadata.flatMap(_.additionalValidations)).pickValidations()
     )
 
     buildAvroRecord(topicMetadata)
