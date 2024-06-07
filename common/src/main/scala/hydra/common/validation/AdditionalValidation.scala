@@ -1,7 +1,7 @@
 package hydra.common.validation
 
 import enumeratum.{Enum, EnumEntry}
-
+import vulcan.AvroNamespace
 import scala.collection.immutable
 
 @AvroNamespace("hydra.kafka.model")
