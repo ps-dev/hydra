@@ -33,4 +33,8 @@ object TopicMetadataError {
   case class PreviousTopicsCannotPointItself(topic: String) extends TopicMetadataError {
     override def message: String = s"Previous topics cannot point to itself, '$topic'!"
   }
+
+  case class InvalidContactProvided(contactField: String) extends TopicMetadataError {
+    override def message: String = s"Field `contact` must be a Slack channel starting with '#', all lowercase, with no spaces, and less than 80 characters, received '$contactField'!"
+  }
 }

@@ -5,9 +5,12 @@ import cats.syntax.all._
 import hydra.common.validation.{AdditionalValidation, AdditionalValidationUtil, MetadataAdditionalValidation, Validator}
 import hydra.common.validation.Validator.valid
 import hydra.kafka.algebras.{KafkaAdminAlgebra, MetadataAlgebra}
+import hydra.kafka.model.ContactMethod.Slack
 import hydra.kafka.model.DataClassification._
 import hydra.kafka.model.TopicMetadataV2Request.Subject
 import hydra.kafka.model._
+import hydra.kafka.services.{Invalid, Valid}
+import hydra.kafka.util.MetadataUtils
 
 class TopicMetadataV2Validator[F[_] : Sync](metadataAlgebra: MetadataAlgebra[F], kafkaAdmin: KafkaAdminAlgebra[F]) extends Validator {
 
@@ -24,7 +27,7 @@ class TopicMetadataV2Validator[F[_] : Sync](metadataAlgebra: MetadataAlgebra[F],
         isExistingTopic = metadata.isDefined,
         currentAdditionalValidations = metadata.flatMap(_.value.additionalValidations)
       ).pickValidations().getOrElse(List.empty).pure
-      _                     <- validateAdditional(additionalValidations)
+      _                     <- validateAdditional(additionalValidations, request)
     } yield ()
 
   private def validateSubDataClassification(dataClassification: DataClassification,
@@ -68,12 +71,27 @@ class TopicMetadataV2Validator[F[_] : Sync](metadataAlgebra: MetadataAlgebra[F],
       (topicName, t.isDefined)
     }
 
-  private def validateAdditional(additionalValidations: List[AdditionalValidation]): F[Unit] = {
+  private def validateAdditional(additionalValidations: List[AdditionalValidation], request: TopicMetadataV2Request): F[Unit] = {
     val validations = additionalValidations.collect {
       // Add extra validations applicable on topics created after replacementTopics feature was introduced.
       case MetadataAdditionalValidation.replacementTopics => valid
+      case MetadataAdditionalValidation.contactValidation if request.contact.exists(_.isInstanceOf[Slack]) =>
+        val slackChannelValidation = extractSlackChannel(request).matches("""^#[a-z][a-z_-]{0,78}$""")
+        validate(slackChannelValidation, TopicMetadataError.InvalidContactProvided(extractSlackChannel(request)))
+//        val slackChannelValidation = extractSlackChannel(request).matches("""^#[a-z][a-z_-]{0,78}$""")
+////        val slackChannelValidation = request.contact.exists {
+////          case Slack(channel) => channel.value.matches("""^#[a-z][a-z_-]{0,78}$""")
+////          case _ => false
+////        }
+//        validate(slackChannelValidation, TopicMetadataError.InvalidContactProvided(extractSlackChannel(request)))
     }
     resultOf(validations.pure)
+  }
+
+  private def extractSlackChannel(request: TopicMetadataV2Request): String = {
+    request.contact.collect {
+      case Slack(channel) => channel.value
+    }.headOption.getOrElse("Unknown Slack channel")
   }
 
   private def validateDeprecatedTopicHasReplacementTopic(deprecated: Boolean, replacementTopics: Option[List[String]], topic: String): F[Unit] = {

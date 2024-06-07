@@ -14,6 +14,7 @@ sealed trait SchemaAdditionalValidation extends AdditionalValidation
 object MetadataAdditionalValidation extends Enum[MetadataAdditionalValidation] {
 
   case object replacementTopics extends MetadataAdditionalValidation
+  case object contactValidation extends MetadataAdditionalValidation
 
   override val values: immutable.IndexedSeq[MetadataAdditionalValidation] = findValues
 }
@@ -31,12 +32,18 @@ object AdditionalValidation {
 
   lazy val allValidations: Option[List[AdditionalValidation]] =
     Some(MetadataAdditionalValidation.values.toList ++ SchemaAdditionalValidation.values.toList)
+
+  lazy val allMetadataValidations: Option[List[AdditionalValidation]] =
+    Some(MetadataAdditionalValidation.values.toList)
 }
 
 class AdditionalValidationUtil(isExistingTopic: Boolean, currentAdditionalValidations: Option[List[AdditionalValidation]]) {
 
   def pickValidations(): Option[List[AdditionalValidation]] =
     if (isExistingTopic) currentAdditionalValidations else AdditionalValidation.allValidations
+
+  def pickMetadataValidations(): Option[List[AdditionalValidation]] =
+    if (isExistingTopic) currentAdditionalValidations else AdditionalValidation.allMetadataValidations
 
   def isPresent(additionalValidation: AdditionalValidation): Boolean =
     pickValidations().exists(_.contains(additionalValidation))

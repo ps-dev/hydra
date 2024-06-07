@@ -112,7 +112,8 @@
           "name": "AdditionalValidations",
           "namespace": "hydra.kafka.model",
           "symbols": [
-            "replacementTopics"
+            "replacementTopics",
+            "contactValidation"
           ]
         }
       ],

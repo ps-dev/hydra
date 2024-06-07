@@ -11,6 +11,7 @@ import hydra.common.config.ConfigSupport
 import ConfigSupport._
 import hydra.common.config.KafkaConfigUtils.KafkaClientSecurityConfig
 import hydra.common.config.KafkaConfigUtils.kafkaSecurityEmptyConfig
+import hydra.common.validation.{AdditionalValidationUtil, MetadataAdditionalValidation}
 import hydra.core.akka.SchemaRegistryActor.{RegisterSchemaRequest, RegisterSchemaResponse}
 import hydra.core.ingest.{HydraRequest, RequestParams}
 import hydra.core.marshallers.{GenericSchema, HydraJsonSupport, StreamType, TopicMetadataRequest}
@@ -105,7 +106,7 @@ class TopicBootstrapActor(
             .flatMap { metadataResponse =>
               val (topicMetadataRequest, metadata) = metadataResponse.metadata.get(schema.subject) match {
                 case Some(topicMetadata) => (request, Some(topicMetadata))
-                case None                => (request, None)
+                case None                => (request.copy(additionalValidations = Some(MetadataAdditionalValidation.values.toList)), None)
               }
 
               TopicMetadataValidator.validate(topicMetadataRequest, schema, kafkaUtils) match {
