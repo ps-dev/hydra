@@ -2,7 +2,6 @@ package hydra.kafka.programs
 
 import hydra.common.validation.ValidationError
 import hydra.kafka.model.SubDataClassification
-import hydra.kafka.model.TopicMetadataV2Request.Subject
 
 sealed trait TopicMetadataError extends ValidationError
 
@@ -35,6 +34,6 @@ object TopicMetadataError {
   }
 
   case class InvalidContactProvided(contactField: String) extends TopicMetadataError {
-    override def message: String = s"Field `contact` must be a Slack channel starting with '#', all lowercase, with no spaces, and less than 80 characters, received '$contactField'!"
+    override def message: String = s"Field `slackChannel` must start with '#' and be entirely lowercase, without spaces, and less than 80 characters, received '$contactField'!"
   }
 }
