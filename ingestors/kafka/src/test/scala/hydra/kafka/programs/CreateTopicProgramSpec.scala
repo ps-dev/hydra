@@ -15,7 +15,7 @@ import hydra.kafka.algebras.KafkaClientAlgebra.{ConsumerGroup, Offset, Partition
 import hydra.kafka.algebras.MetadataAlgebra.TopicMetadataContainer
 import hydra.kafka.algebras.{KafkaAdminAlgebra, KafkaClientAlgebra, MetadataAlgebra, TestMetadataAlgebra}
 import hydra.common.validation.AdditionalValidation.allValidations
-import hydra.kafka.model.ContactMethod.Email
+import hydra.kafka.model.ContactMethod.{Email, Slack}
 import hydra.kafka.model.TopicMetadataV2Request.Subject
 import hydra.kafka.model._
 import hydra.kafka.util.KafkaUtils.TopicDetails
@@ -29,7 +29,7 @@ import retry.{RetryPolicies, RetryPolicy}
 import eu.timepit.refined._
 import hydra.common.NotificationsTestSuite
 import hydra.common.alerting.sender.InternalNotificationSender
-import hydra.common.validation.AdditionalValidation
+import hydra.common.validation.{AdditionalValidation, MetadataAdditionalValidation}
 import hydra.common.validation.ValidationError.ValidationCombinedErrors
 import hydra.kafka.IOSuite
 import hydra.kafka.algebras.RetryableFs2Stream.RetryPolicy.Once
@@ -2410,12 +2410,31 @@ class CreateTopicProgramSpec extends AsyncFreeSpec with Matchers with IOSuite {
       testSuccess(request, previousTopics = topics, createReplacementAndPreviousTopics = true)
     }
 
+    "accept request if the slackChannel in the contact doesn't start with '#' when updating for an old topic." in {
+      val slackChannel = "dev-data-platform"
+      val updatedRequest = topicMetadataRequest.copy(contact = NonEmptyList.of(Slack.create(slackChannel).get), additionalValidations = AdditionalValidation.allValidations.filterNot(_ == MetadataAdditionalValidation.contactValidation))
+      testSuccess(updatedRequest, additionalValidations = AdditionalValidation.allValidations.filterNot(_ == MetadataAdditionalValidation.contactValidation))
+    }
+
+    "throw error if the slackChannel in the contact doesn't start with '#' when updating for a new topic." in {
+      val slackChannel = "dev-data-platform"
+      val updatedRequest = topicMetadataRequest.copy(contact = NonEmptyList.of(Slack.create(slackChannel).get))
+      val result = for {
+        ts <- initTestServices()
+        _ <- ts.program.createTopic(subject, topicMetadataRequest, topicDetails)
+        _ <- ts.program.createTopic(subject, updatedRequest, topicDetails)
+      } yield ()
+
+      result.attempt.map(_ shouldBe TopicMetadataError.InvalidContactProvided(slackChannel).asLeft)
+    }
+
     def testSuccess(request: TopicMetadataV2Request,
                     deprecated: Boolean = false,
                     deprecatedDate: Option[Instant] = None,
                     replacementTopics: Option[List[String]] = None,
                     previousTopics: Option[List[String]] = None,
-                    createReplacementAndPreviousTopics: Boolean = false) = {
+                    createReplacementAndPreviousTopics: Boolean = false,
+                    additionalValidations: Option[List[AdditionalValidation]] = AdditionalValidation.allValidations) = {
       for {
         publishTo <- Ref[IO].of(Map.empty[String, (GenericRecord, Option[GenericRecord], Option[Headers])])
         consumeFrom <- Ref[IO].of(Map.empty[Subject, TopicMetadataContainer])
@@ -2437,7 +2456,7 @@ class CreateTopicProgramSpec extends AsyncFreeSpec with Matchers with IOSuite {
             deprecatedDate = deprecatedDate,
             replacementTopics = replacementTopics,
             previousTopics = previousTopics,
-            additionalValidations = AdditionalValidation.allValidations
+            additionalValidations = additionalValidations
           )))
       } yield {
         published shouldBe Map(metadataTopic -> (expectedTopicMetadata._1, expectedTopicMetadata._2, None))

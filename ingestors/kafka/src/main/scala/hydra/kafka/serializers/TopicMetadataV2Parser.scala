@@ -529,7 +529,7 @@ object Errors {
     s"Field `email` not recognized as a valid address, received ${value.compactPrint}."
 
   def invalidSlackChannelProvided(value: JsValue) =
-    s"Field `slackChannel` field must start with '#' and be entirely lowercase, without spaces, and less than 80 characters, received ${value.compactPrint}."
+    s"Field `slackChannel` must be all lowercase with no spaces and less than 80 characters, received ${value.compactPrint}."
 
   final case class InvalidSchema(value: JsValue, isKey: Boolean, error: Option[Throwable] = none) {
 

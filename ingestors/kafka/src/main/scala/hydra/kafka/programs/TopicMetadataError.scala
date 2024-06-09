@@ -34,6 +34,6 @@ object TopicMetadataError {
   }
 
   case class InvalidContactProvided(contactField: String) extends TopicMetadataError {
-    override def message: String = s"Field `slackChannel` must start with '#' and be entirely lowercase, without spaces, and less than 80 characters, received '$contactField'!"
+    override def message: String = s"Field `slackChannel` must start with '#' and must be all lowercase with no spaces and less than 80 characters, received'$contactField'!"
   }
 }
