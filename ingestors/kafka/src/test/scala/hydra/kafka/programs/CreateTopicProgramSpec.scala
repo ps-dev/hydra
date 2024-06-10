@@ -29,6 +29,8 @@ import retry.{RetryPolicies, RetryPolicy}
 import eu.timepit.refined._
 import hydra.common.NotificationsTestSuite
 import hydra.common.alerting.sender.InternalNotificationSender
+import hydra.common.validation.MetadataAdditionalValidation.replacementTopics
+import hydra.common.validation.SchemaAdditionalValidation.{defaultInRequiredField, timestampMillis}
 import hydra.common.validation.{AdditionalValidation, MetadataAdditionalValidation}
 import hydra.common.validation.ValidationError.ValidationCombinedErrors
 import hydra.kafka.IOSuite
@@ -2410,22 +2412,58 @@ class CreateTopicProgramSpec extends AsyncFreeSpec with Matchers with IOSuite {
       testSuccess(request, previousTopics = topics, createReplacementAndPreviousTopics = true)
     }
 
-    "accept request if the slackChannel in the contact doesn't start with '#' when updating for an old topic." in {
-      val slackChannel = "dev-data-platform"
-      val updatedRequest = topicMetadataRequest.copy(contact = NonEmptyList.of(Slack.create(slackChannel).get), additionalValidations = AdditionalValidation.allValidations.filterNot(_ == MetadataAdditionalValidation.contactValidation))
-      testSuccess(updatedRequest, additionalValidations = AdditionalValidation.allValidations.filterNot(_ == MetadataAdditionalValidation.contactValidation))
+    "contactValidation field is added in additionalValidations for a new topic" in {
+      for {
+        publishTo             <- Ref[IO].of(Map.empty[String, (GenericRecord, Option[GenericRecord], Option[Headers])])
+        consumeFrom           <- Ref[IO].of(Map.empty[Subject, TopicMetadataContainer])
+        metadata              <- IO(new TestMetadataAlgebraWithPublishTo(consumeFrom))
+        ts                    <- initTestServices(new TestKafkaClientAlgebraWithPublishTo(publishTo).some, metadata.some)
+        _                     <- ts.program.createTopic(subject, topicMetadataRequest, topicDetails, withRequiredFields = true)
+        published             <- publishTo.get
+        expectedTopicMetadata <- TopicMetadataV2.encode[IO](
+          topicMetadataKey,
+          Some(topicMetadataValue.copy(additionalValidations = allValidations))) // contactValidation is added in topicMetadataValue
+      } yield {
+        published shouldBe Map(metadataTopic -> (expectedTopicMetadata._1, expectedTopicMetadata._2, None))
+      }
     }
 
-    "throw error if the slackChannel in the contact doesn't start with '#' when updating for a new topic." in {
+    "contactValidation field is NOT added in additionalValidations if an existing topic does not have it" in {
+      for {
+        publishTo             <- Ref[IO].of(Map.empty[String, (GenericRecord, Option[GenericRecord], Option[Headers])])
+        consumeFrom           <- Ref[IO].of(Map.empty[Subject, TopicMetadataContainer])
+        metadata              <- IO(new TestMetadataAlgebraWithPublishTo(consumeFrom))
+        _                     <- metadata.addToMetadata(subject, topicMetadataRequest.copy(
+          additionalValidations = allValidations.map(_.filterNot(_ == MetadataAdditionalValidation.contactValidation))))
+        ts                    <- initTestServices(new TestKafkaClientAlgebraWithPublishTo(publishTo).some, metadata.some)
+        _                     <- ts.program.createTopic(subject, topicMetadataRequest, topicDetails, withRequiredFields = true)
+        published             <- publishTo.get
+        expectedTopicMetadata <- TopicMetadataV2.encode[IO](topicMetadataKey, Some(topicMetadataValue.copy(
+          additionalValidations = allValidations.map(_.filterNot(_ == MetadataAdditionalValidation.contactValidation))))) // contactValidation is not added in additionalValidations
+      } yield {
+        published shouldBe Map(metadataTopic -> (expectedTopicMetadata._1, expectedTopicMetadata._2, None))
+      }
+    }
+
+    "accept request if the slackChannel in the contact doesn't start with '#' for an old topic." in {
+      val slackChannel = "dev-data-platform"
+      for {
+        publishTo             <- Ref[IO].of(Map.empty[String, (GenericRecord, Option[GenericRecord], Option[Headers])])
+        consumeFrom           <- Ref[IO].of(Map.empty[Subject, TopicMetadataContainer])
+        metadata              <- IO(new TestMetadataAlgebraWithPublishTo(consumeFrom))
+        _                     <- metadata.addToMetadata(subject, topicMetadataRequest.copy(
+          additionalValidations = allValidations.map(_.filterNot(_ == MetadataAdditionalValidation.contactValidation))))
+        ts                    <- initTestServices(new TestKafkaClientAlgebraWithPublishTo(publishTo).some, metadata.some)
+        _                     <- ts.program.createTopic(subject, topicMetadataRequest.copy(contact = NonEmptyList.of(Slack.create(slackChannel).get)),
+          topicDetails, withRequiredFields = true)
+      } yield succeed
+    }
+
+    "throw error if the slackChannel in the contact doesn't start with '#' for a new topic." in {
       val slackChannel = "dev-data-platform"
       val updatedRequest = topicMetadataRequest.copy(contact = NonEmptyList.of(Slack.create(slackChannel).get))
-      val result = for {
-        ts <- initTestServices()
-        _ <- ts.program.createTopic(subject, topicMetadataRequest, topicDetails)
-        _ <- ts.program.createTopic(subject, updatedRequest, topicDetails)
-      } yield ()
 
-      result.attempt.map(_ shouldBe TopicMetadataError.InvalidContactProvided(slackChannel).asLeft)
+      testFailure(updatedRequest, TopicMetadataError.InvalidContactProvided(slackChannel))
     }
 
     def testSuccess(request: TopicMetadataV2Request,
@@ -2433,8 +2471,7 @@ class CreateTopicProgramSpec extends AsyncFreeSpec with Matchers with IOSuite {
                     deprecatedDate: Option[Instant] = None,
                     replacementTopics: Option[List[String]] = None,
                     previousTopics: Option[List[String]] = None,
-                    createReplacementAndPreviousTopics: Boolean = false,
-                    additionalValidations: Option[List[AdditionalValidation]] = AdditionalValidation.allValidations) = {
+                    createReplacementAndPreviousTopics: Boolean = false) = {
       for {
         publishTo <- Ref[IO].of(Map.empty[String, (GenericRecord, Option[GenericRecord], Option[Headers])])
         consumeFrom <- Ref[IO].of(Map.empty[Subject, TopicMetadataContainer])
@@ -2456,7 +2493,7 @@ class CreateTopicProgramSpec extends AsyncFreeSpec with Matchers with IOSuite {
             deprecatedDate = deprecatedDate,
             replacementTopics = replacementTopics,
             previousTopics = previousTopics,
-            additionalValidations = additionalValidations
+            additionalValidations = AdditionalValidation.allValidations
           )))
       } yield {
         published shouldBe Map(metadataTopic -> (expectedTopicMetadata._1, expectedTopicMetadata._2, None))
