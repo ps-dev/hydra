@@ -7,11 +7,11 @@ import fs2.kafka.{Header, Headers}
 import hydra.avro.registry.SchemaRegistry
 import hydra.avro.resource.SchemaResourceLoader.SchemaNotFoundException
 import hydra.avro.util.SchemaWrapper
+import hydra.common.validation.{AdditionalValidation, AdditionalValidationUtil, SchemaAdditionalValidation}
 import hydra.core.transport.ValidationStrategy
 import hydra.kafka.algebras.{KafkaClientAlgebra, MetadataAlgebra}
 import hydra.kafka.algebras.KafkaClientAlgebra.PublishResponse
 import hydra.kafka.model.TopicMetadataV2Request.Subject
-import hydra.kafka.model.{AdditionalValidation, SchemaAdditionalValidation}
 import org.apache.avro.Schema
 import org.apache.avro.generic.GenericRecord
 import scalacache._
@@ -78,7 +78,10 @@ final class IngestionFlowV2[F[_]: MonadError[*[_], Throwable]: Mode](
 
     for {
       metadata <- metadata.getMetadataFor(topic)
-      useTimestampValidation = AdditionalValidation.isPresent(metadata, SchemaAdditionalValidation.timestampMillis)
+      additionalValidationUtility = new AdditionalValidationUtil(
+        isExistingTopic = metadata.isDefined,
+        currentAdditionalValidations = metadata.flatMap(_.value.additionalValidations))
+      useTimestampValidation = additionalValidationUtility.isPresent(SchemaAdditionalValidation.timestampMillis)
       kSchema <- getSchemaWrapper(topic, isKey = true)
       vSchema <- getSchemaWrapper(topic, isKey = false)
       k <- MonadError[F, Throwable].fromTry(

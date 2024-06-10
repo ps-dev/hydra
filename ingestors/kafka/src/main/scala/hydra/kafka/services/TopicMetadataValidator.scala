@@ -1,8 +1,10 @@
 package hydra.kafka.services
 
-import hydra.core.marshallers.GenericSchema
+import hydra.core.marshallers.{GenericSchema, TopicMetadataRequest}
+import hydra.kafka.programs.TopicMetadataError
+import hydra.kafka.util.KafkaUtils
 
-import scala.util.{Failure, Try}
+import scala.util.{Failure, Success, Try}
 
 object TopicMetadataValidator {
 
@@ -16,24 +18,37 @@ object TopicMetadataValidator {
       validFormat
     )
 
-  def validate(gOpt: Option[GenericSchema]): Try[ValidationResponse] = {
+  def validate(request: TopicMetadataRequest, schema: GenericSchema, kafkaUtils: KafkaUtils): Try[ValidationResponse] =
+    mergeValidationResponses(
+      List(
+        validateSubject(Option(schema)),
+        validateTopicsExist(request.replacementTopics, kafkaUtils),
+        validateTopicsExist(request.previousTopics, kafkaUtils),
+        validateDeprecatedTopicHasReplacementTopic(request.deprecated.contains(true), request.replacementTopics, schema.subject),
+        validateNonDepSelfRefReplacementTopics(request.deprecated.contains(true), request.replacementTopics, schema.subject),
+        validatePreviousTopicsCannotPointItself(request.previousTopics, schema.subject)
+      )
+    )
+
+  def validateSubject(gOpt: Option[GenericSchema]): Try[ValidationResponse] = {
     gOpt match {
-      case Some(g) =>
-        subjectValidationFunctions
-          .map(f => f(s"${g.namespace}.${g.name}"))
-          .collect {
-            case r: Invalid => r
-          } match {
-          case respSeq: Seq[ValidationResponse] if respSeq.nonEmpty =>
-            Failure(
-              SchemaValidatorException(respSeq.map(invalid => invalid.reason))
-            )
-          case _ => scala.util.Success(Valid)
-        }
-      case None =>
-        Failure(SchemaValidatorException(SchemaError :: Nil))
+      case Some(g) => validateSubject(s"${g.namespace}.${g.name}")
+      case None    => Failure(ValidatorException(SchemaError :: Nil))
     }
   }
+
+  def validateSubject(subject: String): Try[ValidationResponse] =
+    subjectValidationFunctions
+      .map(f => f(subject))
+      .collect {
+        case r: Invalid => r
+      } match {
+      case respSeq: Seq[ValidationResponse] if respSeq.nonEmpty =>
+        Failure(
+          ValidatorException(respSeq.map(invalid => invalid.reason))
+        )
+      case _ => scala.util.Success(Valid)
+    }
 
   private def topicIsTooLong(topic: String): ValidationResponse = {
     topic match {
@@ -73,6 +88,60 @@ object TopicMetadataValidator {
       case _                               => Valid
     }
   }
+
+  private def validateDeprecatedTopicHasReplacementTopic(deprecated: Boolean,
+                                                         replacementTopics: Option[List[String]],
+                                                         topic: String): Try[ValidationResponse] = {
+    val isDeprecatedWithReplacementTopic = if (deprecated) replacementTopics.exists(_.nonEmpty) else true
+    if (isDeprecatedWithReplacementTopic) {
+      Success(Valid)
+    } else {
+      val errorMessage = TopicMetadataError.ReplacementTopicsMissingError(topic).message
+      Failure(ValidatorException(Seq(errorMessage)))
+    }
+  }
+
+  private def validateNonDepSelfRefReplacementTopics(deprecated: Boolean,
+                                                     replacementTopics: Option[List[String]],
+                                                     topic: String): Try[ValidationResponse] = {
+    val topicNotDeprecatedDoesNotPointToSelf = if (!deprecated) replacementTopics.forall(!_.contains(topic)) else true
+    if (topicNotDeprecatedDoesNotPointToSelf) {
+      Success(Valid)
+    } else {
+      val errorMessage = TopicMetadataError.SelfRefReplacementTopicsError(topic).message
+      Failure(ValidatorException(Seq(errorMessage)))
+    }
+  }
+
+  private def mergeValidationResponses(validationList: List[Try[ValidationResponse]]): Try[ValidationResponse] =
+    validationList collect {
+      case Failure(ValidatorException(failures)) => failures
+    } match {
+      case failures: Seq[Seq[String]] if failures.nonEmpty => Failure(ValidatorException(failures.flatten))
+      case _ => Success(Valid)
+    }
+
+  private def validateTopicsExist(maybeTopics: Option[List[String]], kafkaUtils: KafkaUtils): Try[ValidationResponse] =
+    maybeTopics.map(doTopicsExist(_, kafkaUtils)).getOrElse(Success(Valid))
+
+  private def validatePreviousTopicsCannotPointItself(maybeTopics: Option[List[String]], currentTopic: String): Try[ValidationResponse] =
+    maybeTopics match {
+      case Some(topics) if topics.contains(currentTopic) => Failure(ValidatorException(List(s"Previous topics cannot point to itself, '$currentTopic'!")))
+      case _                                             => Success(Valid)
+    }
+
+  private def doTopicsExist(topics: List[String], kafkaUtils: KafkaUtils): Try[ValidationResponse] = {
+    val notExistingTopics = topics.collect {
+      case topic if !kafkaUtils.topicExists(topic).get => s"Topic '$topic' does not exist!"
+    }
+
+    if (notExistingTopics.nonEmpty) {
+      Failure(ValidatorException(notExistingTopics))
+    }
+    else {
+      Success(Valid)
+    }
+  }
 }
 
 object ErrorMessages {
@@ -100,5 +169,5 @@ case object Valid extends ValidationResponse
 
 case class Invalid(reason: String) extends ValidationResponse
 
-case class SchemaValidatorException(reasons: Seq[String])
+case class ValidatorException(reasons: Seq[String])
     extends RuntimeException

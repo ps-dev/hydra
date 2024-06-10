@@ -5,12 +5,12 @@ import cats.effect.Sync
 import cats.syntax.all._
 import hydra.avro.convert.IsoDate
 import hydra.avro.registry.SchemaRegistry
-import hydra.kafka.model.{AdditionalValidation, RequiredField, SchemaAdditionalValidation, Schemas, SkipValidation, StreamTypeV2, TopicMetadataV2Request}
+import hydra.kafka.model.{RequiredField, Schemas, SkipValidation, StreamTypeV2, TopicMetadataV2Request}
 import hydra.kafka.model.TopicMetadataV2Request.Subject
 import hydra.kafka.programs.TopicSchemaError._
 import org.apache.avro.{Schema, SchemaBuilder}
 import RequiredFieldStructures._
-import hydra.common.validation.Validator
+import hydra.common.validation.{AdditionalValidation, AdditionalValidationUtil, SchemaAdditionalValidation, Validator}
 import hydra.common.validation.Validator.{ValidationChain, valid}
 import hydra.kafka.algebras.MetadataAlgebra
 import hydra.kafka.model.RequiredField.RequiredField
@@ -31,7 +31,10 @@ class KeyAndValueSchemaV2Validator[F[_]: Sync] private (schemaRegistry: SchemaRe
 
     for {
       metadata <- metadataAlgebra.getMetadataFor(subject)
-      validateDefaultInRequiredField = AdditionalValidation.isPresent(metadata, SchemaAdditionalValidation.defaultInRequiredField)
+      additionalValidationUtility = new AdditionalValidationUtil(
+        isExistingTopic = metadata.isDefined,
+        currentAdditionalValidations = metadata.flatMap(_.value.additionalValidations))
+      validateDefaultInRequiredField = additionalValidationUtility.isPresent(SchemaAdditionalValidation.defaultInRequiredField)
       schemas = request.schemas
       _ <- (Option(schemas.key).map(_.getType).getOrElse(Schema.Type.NULL), Option(schemas.value).map(_.getType).getOrElse(Schema.Type.NULL)) match {
         case (Schema.Type.RECORD, Schema.Type.RECORD) =>

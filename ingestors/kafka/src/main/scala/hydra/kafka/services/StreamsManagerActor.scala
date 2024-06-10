@@ -2,7 +2,6 @@ package hydra.kafka.services
 
 import java.net.InetAddress
 import java.util.UUID
-
 import akka.NotUsed
 import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props}
 import akka.kafka.scaladsl.Consumer
@@ -127,6 +126,16 @@ object StreamsManagerActor {
     c.getStringOpt("metadata-topic-name")
       .getOrElse("_hydra.metadata.topic")
 
+  private def toOptionList(record: GenericRecord, fieldName: String): Option[List[String]] =
+    if (record.hasField(fieldName) && record.get(fieldName) != null) {
+      Option(record.get(fieldName).toString) map { value =>
+        val trimmed = value.trim.stripPrefix("[").stripSuffix("]")
+        trimmed.split(",").map(_.trim).toList
+      }
+    } else {
+      None
+    }
+
   private[services] def createMetadataStream[K, V](
       config: Config,
       kafkaClientSecurityConfig: KafkaClientSecurityConfig,
@@ -163,6 +172,8 @@ object StreamsManagerActor {
             record.get("streamType").toString,
             record.get("derived").toString.toBoolean,
             Try(Option(record.get("deprecated"))).toOption.flatten.map(_.toString.toBoolean),
+            toOptionList(record, "replacementTopics"),
+            toOptionList(record, "previousTopics"),
             record.get("dataClassification").toString,
             Try(Option(record.get("subDataClassification"))).toOption.flatten.map(_.toString),
             record.get("contact").toString,
@@ -170,7 +181,8 @@ object StreamsManagerActor {
             Try(Option(record.get("notes"))).toOption.flatten.map(_.toString),
             UUID.fromString(record.get("id").toString),
             formatter.parseDateTime(record.get("createdDate").toString),
-            Try(Option(record.get("notificationUrl"))).toOption.flatten.map(_.toString)
+            Try(Option(record.get("notificationUrl"))).toOption.flatten.map(_.toString),
+            None // Never pick additionalValidations from the request.
           )
         }
         TopicMetadataMessage(msg.key, topicMetadata)

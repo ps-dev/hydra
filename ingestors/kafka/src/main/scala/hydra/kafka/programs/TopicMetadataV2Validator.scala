@@ -2,15 +2,29 @@ package hydra.kafka.programs
 
 import cats.effect.Sync
 import cats.syntax.all._
-import hydra.common.validation.Validator
+import hydra.common.validation.{AdditionalValidation, AdditionalValidationUtil, MetadataAdditionalValidation, Validator}
+import hydra.common.validation.Validator.valid
+import hydra.kafka.algebras.{KafkaAdminAlgebra, MetadataAlgebra}
 import hydra.kafka.model.DataClassification._
-import hydra.kafka.model.{DataClassification, SubDataClassification, TopicMetadataV2Request}
+import hydra.kafka.model.TopicMetadataV2Request.Subject
+import hydra.kafka.model._
 
-class TopicMetadataV2Validator[F[_] : Sync] () extends Validator {
+class TopicMetadataV2Validator[F[_] : Sync](metadataAlgebra: MetadataAlgebra[F], kafkaAdmin: KafkaAdminAlgebra[F]) extends Validator {
 
-  def validate(metadataV2Request: TopicMetadataV2Request): F[Unit] =
+  def validate(request: TopicMetadataV2Request, subject: Subject): F[Unit] =
     for {
-      _ <- validateSubDataClassification(metadataV2Request.dataClassification, metadataV2Request.subDataClassification)
+      metadata              <- metadataAlgebra.getMetadataFor(subject)
+      _                     <- validateSubDataClassification(request.dataClassification, request.subDataClassification)
+      _                     <- validateTopicsExist(request.replacementTopics)
+      _                     <- validateTopicsExist(request.previousTopics)
+      _                     <- validateDeprecatedTopicHasReplacementTopic(request.deprecated, request.replacementTopics, subject.value)
+      _                     <- validateNonDepSelfRefReplacementTopics(request.deprecated, request.replacementTopics, subject.value)
+      _                     <- validatePreviousTopicsCannotPointItself(request.previousTopics, subject.value)
+      additionalValidations <- new AdditionalValidationUtil(
+        isExistingTopic = metadata.isDefined,
+        currentAdditionalValidations = metadata.flatMap(_.value.additionalValidations)
+      ).pickValidations().getOrElse(List.empty).pure
+      _                     <- validateAdditional(additionalValidations)
     } yield ()
 
   private def validateSubDataClassification(dataClassification: DataClassification,
@@ -35,4 +49,56 @@ class TopicMetadataV2Validator[F[_] : Sync] () extends Validator {
         Seq.empty
       }
   }
+
+  private def validateTopicsExist(maybeTopics: Option[List[String]]): F[Unit] = {
+    val validationChains = for {
+      topics <- maybeTopics.getOrElse(List.empty).traverse(checkIfTopicExists)
+      (_, notExistingTopics) = topics.partition(_._2)
+    } yield {
+      notExistingTopics collect {
+        case (topic, isExisting) => validate(isExisting, TopicMetadataError.TopicDoesNotExist(topic))
+      }
+    }
+
+    resultOf(validationChains)
+  }
+
+  private def checkIfTopicExists(topicName: String): F[(String, Boolean)] =
+    kafkaAdmin.describeTopic(topicName).map { t =>
+      (topicName, t.isDefined)
+    }
+
+  private def validateAdditional(additionalValidations: List[AdditionalValidation]): F[Unit] = {
+    val validations = additionalValidations.collect {
+      // Add extra validations applicable on topics created after replacementTopics feature was introduced.
+      case MetadataAdditionalValidation.replacementTopics => valid
+    }
+    resultOf(validations.pure)
+  }
+
+  private def validateDeprecatedTopicHasReplacementTopic(deprecated: Boolean, replacementTopics: Option[List[String]], topic: String): F[Unit] = {
+    val hasReplacementTopicsIfDeprecated = if (deprecated) replacementTopics.exists(_.nonEmpty) else true
+    resultOf(validate(hasReplacementTopicsIfDeprecated, TopicMetadataError.ReplacementTopicsMissingError(topic)))
+  }
+
+  private def validateNonDepSelfRefReplacementTopics(deprecated: Boolean,
+                                                     replacementTopics: Option[List[String]],
+                                                     topic: String): F[Unit] = {
+    val topicNotDeprecatedDoesNotPointToSelf = if (!deprecated) replacementTopics.forall(!_.contains(topic)) else true
+    resultOf(validate(topicNotDeprecatedDoesNotPointToSelf, TopicMetadataError.SelfRefReplacementTopicsError(topic)))
+  }
+
+  private def validatePreviousTopicsCannotPointItself(maybeTopics: Option[List[String]], currentTopic: String): F[Unit] = {
+    val validationChain = maybeTopics match {
+      case Some(topics) => validate(!topics.contains(currentTopic), TopicMetadataError.PreviousTopicsCannotPointItself(currentTopic))
+      case None         => valid
+    }
+
+    resultOf(validationChain)
+  }
+}
+
+object TopicMetadataV2Validator {
+  def make[F[_] : Sync](metadataAlgebra: MetadataAlgebra[F], kafkaAdmin: KafkaAdminAlgebra[F]): TopicMetadataV2Validator[F] =
+    new TopicMetadataV2Validator[F](metadataAlgebra, kafkaAdmin)
 }

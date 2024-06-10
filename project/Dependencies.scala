@@ -214,7 +214,7 @@ object Dependencies {
   val integrationDeps: Seq[ModuleID] = testContainers ++ TestLibraries.getTestLibraries(module = "it")
 
   val baseDeps: Seq[ModuleID] =
-    akka ++ Seq(avro, ciris, refined, enumeratum) ++ cats ++ logging ++ joda ++ testDeps ++ kafkaClients ++ awsMskIamAuth
+    akka ++ Seq(avro, ciris, refined, enumeratum) ++ cats ++ logging ++ joda ++ testDeps ++ kafkaClients ++ awsMskIamAuth ++ vulcan
 
   val avroDeps: Seq[ModuleID] =
     baseDeps ++ kafkaAvroSerializer ++ jackson ++ guavacache ++ catsEffect ++ redisCache
@@ -229,8 +229,9 @@ object Dependencies {
 
   val kafkaDeps: Seq[ModuleID] = coreDeps ++ Seq(
     akkaKafkaStream,
-    refined
-  ) ++ kafka ++ akkaHttpHal ++ vulcan ++ fs2Kafka ++ integrationDeps ++ kafkaSchemaRegistry
+    refined,
+    sprayJson
+  ) ++ kafka ++ akkaHttpHal ++ fs2Kafka ++ integrationDeps ++ kafkaSchemaRegistry
 
   val awsAuthDeps: Seq[ModuleID] = awsSdk
 

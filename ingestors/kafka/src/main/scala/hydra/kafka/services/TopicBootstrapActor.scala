@@ -22,7 +22,6 @@ import hydra.kafka.services.StreamsManagerActor.{GetMetadata, GetMetadataRespons
 import hydra.kafka.util.KafkaUtils
 import hydra.kafka.util.KafkaUtils.TopicDetails
 
-import scala.collection.JavaConverters._
 import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.io.Source
@@ -44,7 +43,7 @@ class TopicBootstrapActor(
   import TopicBootstrapActor._
   import spray.json._
 
-  implicit val metadataFormat = jsonFormat13(TopicMetadata)
+  implicit val metadataFormat = jsonFormat16(TopicMetadata)
 
   implicit val ec = context.dispatcher
 
@@ -98,24 +97,24 @@ class TopicBootstrapActor(
   }
 
   def active: Receive = {
-    case InitiateTopicBootstrap(topicMetadataRequest) =>
-      (getGenericSchema(topicMetadataRequest) match {
+    case InitiateTopicBootstrap(request) =>
+      (getGenericSchema(request) match {
         case Some(schema) =>
           (streamsManagerActor ? GetMetadata)
             .mapTo[GetMetadataResponse]
-            .flatMap { metadataReponse =>
-              metadataReponse.metadata.get(schema.subject) match {
-                case Some(topicMetadata) =>
-                  executeEndpoint(topicMetadataRequest, Some(topicMetadata))
-                case None =>
-                  TopicMetadataValidator.validate(Some(schema)) match {
-                    case Success(_) =>
-                      executeEndpoint(topicMetadataRequest)
-                    case Failure(ex: SchemaValidatorException) =>
-                      Future(BootstrapFailure(ex.reasons))
-                    case Failure(e) =>
-                      Future(BootstrapFailure(e.getMessage :: Nil))
-                  }
+            .flatMap { metadataResponse =>
+              val (topicMetadataRequest, metadata) = metadataResponse.metadata.get(schema.subject) match {
+                case Some(topicMetadata) => (request, Some(topicMetadata))
+                case None                => (request, None)
+              }
+
+              TopicMetadataValidator.validate(topicMetadataRequest, schema, kafkaUtils) match {
+                case Success(_) =>
+                  executeEndpoint(topicMetadataRequest, metadata)
+                case Failure(ex: ValidatorException) =>
+                  Future(BootstrapFailure(ex.reasons))
+                case Failure(e) =>
+                  Future(BootstrapFailure(e.getMessage :: Nil))
               }
             }
         case None =>
@@ -191,6 +190,8 @@ class TopicBootstrapActor(
       topicMetadataRequest.streamType.toString,
       topicMetadataRequest.derived,
       topicMetadataRequest.deprecated,
+      topicMetadataRequest.replacementTopics,
+      topicMetadataRequest.previousTopics,
       topicMetadataRequest.dataClassification,
       topicMetadataRequest.subDataClassification,
       topicMetadataRequest.contact,
@@ -200,7 +201,8 @@ class TopicBootstrapActor(
       existingTopicMetadata
         .map(_.createdDate)
         .getOrElse(org.joda.time.DateTime.now()),
-      topicMetadataRequest.notificationUrl
+      topicMetadataRequest.notificationUrl,
+      None // Never pick additionalValidations from the request.
     )
 
     buildAvroRecord(topicMetadata)

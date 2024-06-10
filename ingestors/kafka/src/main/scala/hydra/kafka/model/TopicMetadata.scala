@@ -8,6 +8,7 @@ import cats.syntax.all._
 import cats.{Applicative, ApplicativeError, Monad, MonadError}
 import fs2.kafka.Headers
 import hydra.avro.convert.{ISODateConverter, IsoDate}
+import hydra.common.validation.{AdditionalValidation, MetadataAdditionalValidation, SchemaAdditionalValidation}
 import hydra.core.marshallers._
 import hydra.kafka.model.TopicMetadataV2Request.Subject
 import org.apache.avro.generic.GenericRecord
@@ -29,6 +30,8 @@ case class TopicMetadata(
     streamType: String,
     derived: Boolean,
     deprecated: Option[Boolean],
+    replacementTopics: Option[List[String]],
+    previousTopics: Option[List[String]],
     dataClassification: String,
     subDataClassification: Option[String],
     contact: String,
@@ -36,7 +39,8 @@ case class TopicMetadata(
     notes: Option[String],
     id: UUID,
     createdDate: org.joda.time.DateTime,
-    notificationUrl: Option[String]
+    notificationUrl: Option[String],
+    additionalValidations: Option[List[AdditionalValidation]] = None // Never pick additionalValidations from the request.
 )
 
 object TopicMetadataV2 {
@@ -144,6 +148,8 @@ final case class TopicMetadataV2ValueOptionalTagList(
                                          streamType: StreamTypeV2,
                                          deprecated: Boolean,
                                          deprecatedDate: Option[Instant],
+                                         replacementTopics: Option[List[String]],
+                                         previousTopics: Option[List[String]],
                                          dataClassification: DataClassification,
                                          subDataClassification: Option[SubDataClassification],
                                          contact: NonEmptyList[ContactMethod],
@@ -160,6 +166,8 @@ final case class TopicMetadataV2ValueOptionalTagList(
       streamType,
       deprecated,
       deprecatedDate,
+      replacementTopics,
+      previousTopics,
       dataClassification,
       subDataClassification,
       contact,
@@ -179,6 +187,8 @@ final case class TopicMetadataV2Value(
     streamType: StreamTypeV2,
     deprecated: Boolean,
     deprecatedDate: Option[Instant],
+    replacementTopics: Option[List[String]],
+    previousTopics: Option[List[String]],
     dataClassification: DataClassification,
     subDataClassification: Option[SubDataClassification],
     contact: NonEmptyList[ContactMethod],
@@ -195,6 +205,8 @@ final case class TopicMetadataV2Value(
       streamType,
       deprecated,
       deprecatedDate,
+      replacementTopics,
+      previousTopics,
       dataClassification,
       subDataClassification,
       contact,
@@ -303,14 +315,17 @@ object TopicMetadataV2ValueOptionalTagList {
 
   private implicit val additionalValidationCodec: Codec[AdditionalValidation] = Codec.deriveEnum[AdditionalValidation](
     symbols = List(
+      MetadataAdditionalValidation.replacementTopics.entryName,
       SchemaAdditionalValidation.defaultInRequiredField.entryName,
       SchemaAdditionalValidation.timestampMillis.entryName
     ),
     encode = {
+      case MetadataAdditionalValidation.replacementTopics    => MetadataAdditionalValidation.replacementTopics.entryName
       case SchemaAdditionalValidation.defaultInRequiredField => SchemaAdditionalValidation.defaultInRequiredField.entryName
       case SchemaAdditionalValidation.timestampMillis        => SchemaAdditionalValidation.timestampMillis.entryName
     },
     decode = {
+      case "replacementTopics"      => Right(MetadataAdditionalValidation.replacementTopics)
       case "defaultInRequiredField" => Right(SchemaAdditionalValidation.defaultInRequiredField)
       case "timestampMillis"        => Right(SchemaAdditionalValidation.timestampMillis)
       case other                    => Left(AvroError(s"$other is not a ${AdditionalValidation.toString}"))
@@ -326,6 +341,8 @@ object TopicMetadataV2ValueOptionalTagList {
       (field("streamType", _.streamType),
         field("deprecated", _.deprecated),
         field("deprecatedDate", _.deprecatedDate, default = Some(None)),
+        field("replacementTopics", _.replacementTopics, default = Some(None)),
+        field("previousTopics", _.previousTopics, default = Some(None)),
         field("dataClassification", _.dataClassification),
         field("subDataClassification", _.subDataClassification, default = Some(None)),
         field("contact", _.contact),

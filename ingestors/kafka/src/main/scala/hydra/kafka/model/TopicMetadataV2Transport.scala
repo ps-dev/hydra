@@ -6,6 +6,7 @@ import eu.timepit.refined.api.{Refined, RefinedTypeOps}
 import eu.timepit.refined.boolean._
 import eu.timepit.refined.numeric._
 import eu.timepit.refined.string._
+import hydra.common.validation.AdditionalValidation
 import hydra.kafka.algebras.MetadataAlgebra.TopicMetadataContainer
 import hydra.kafka.model.TopicMetadataV2Request.Subject
 import org.apache.avro.Schema
@@ -66,6 +67,8 @@ final case class TopicMetadataV2Request(
                                          streamType: StreamTypeV2,
                                          deprecated: Boolean,
                                          deprecatedDate: Option[Instant],
+                                         replacementTopics: Option[List[String]],
+                                         previousTopics: Option[List[String]],
                                          dataClassification: DataClassification,
                                          subDataClassification: Option[SubDataClassification],
                                          contact: NonEmptyList[ContactMethod],
@@ -84,6 +87,8 @@ final case class TopicMetadataV2Request(
       streamType,
       deprecated,
       deprecatedDate,
+      replacementTopics,
+      previousTopics,
       dataClassification,
       subDataClassification,
       contact,
@@ -130,6 +135,8 @@ object TopicMetadataV2Request {
       mor.streamType,
       mor.deprecated,
       mor.deprecatedDate,
+      mor.replacementTopics,
+      mor.previousTopics,
       mor.dataClassification,
       mor.subDataClassification,
       mor.contact,
@@ -154,6 +161,8 @@ final case class TopicMetadataV2Response(
                                           streamType: StreamTypeV2,
                                           deprecated: Boolean,
                                           deprecatedDate: Option[Instant],
+                                          replacementTopics: Option[List[String]],
+                                          previousTopics: Option[List[String]],
                                           dataClassification: DataClassification,
                                           subDataClassification: Option[SubDataClassification],
                                           contact: NonEmptyList[ContactMethod],
@@ -174,6 +183,8 @@ object TopicMetadataV2Response {
       v.streamType,
       v.deprecated,
       v.deprecatedDate,
+      v.replacementTopics,
+      v.previousTopics,
       v.dataClassification,
       v.subDataClassification,
       v.contact,
@@ -190,6 +201,8 @@ object TopicMetadataV2Response {
 final case class MetadataOnlyRequest(streamType: StreamTypeV2,
                                      deprecated: Boolean,
                                      deprecatedDate: Option[Instant],
+                                     replacementTopics: Option[List[String]],
+                                     previousTopics: Option[List[String]],
                                      dataClassification: DataClassification,
                                      subDataClassification: Option[SubDataClassification],
                                      contact: NonEmptyList[ContactMethod],

@@ -281,7 +281,7 @@ class TopicMetadataEndpointSpec
 
     val validRequest = """{
                          |    "streamType": "Event",
-                         |    "deprecated": true,
+                         |    "deprecated": false,
                          |    "dataClassification": "InternalUse",
                          |    "subDataClassification": "InternalUseOnly",
                          |    "contact": {
@@ -299,6 +299,7 @@ class TopicMetadataEndpointSpec
       """{
         |    "streamType": "History",
         |    "deprecated": true,
+        |    "replacementTopics": ["dvs.test.subject.new"],
         |    "dataClassification": "InternalUse",
         |    "subDataClassification": "InternalUseOnly",
         |    "contact": {
@@ -329,7 +330,7 @@ class TopicMetadataEndpointSpec
     def dataClassificationRequest(dataClassification: String, subDataClassification: Option[String] = None) =
       s"""{
         |    "streamType": "Event",
-        |    "deprecated": true,
+        |    "deprecated": false,
         |    "dataClassification": "$dataClassification",
         |    ${if (subDataClassification.isDefined) s""""subDataClassification": "${subDataClassification.get}",""" else ""}
         |    "contact": {
