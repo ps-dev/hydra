@@ -40,7 +40,7 @@ resources:
     memory: 10Gi
   requests:
     cpu: 250m
-    memory: 5Gi
+    memory: 7Gi
 
 tolerations: []
 
@@ -53,9 +53,8 @@ config:
   HYDRA_SCHEMA_REGISTRY_URL: https://dvs-dev-schema-registry.eplur-staging.vnerd.com:8081
   HYDRA_V2_METADATA_CONTACT: '#dev-data-platform'
   HYDRA_REPLICATION_FACTOR: 1
-  HYDRA_V2_METADATA_CONSUMER_GROUP: 'v2MetadataConsumer'
+  HYDRA_V2_METADATA_CONSUMER_GROUP: 'dev-cluster-v2MetadataConsumer'
   HYDRA_V2_CREATE_TOPICS_ENABLED: 'true'
   HYDRA_V2_METADATA_CREATE_ON_STARTUP: 'true'
   HYDRA_MIN_INSYNC_REPLICAS: 1
-
 
