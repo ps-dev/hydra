@@ -47,7 +47,8 @@ tolerations: []
 nodeSelector: {}
 
 config:
-  HYDRA_KAFKA_SECURITY_PROTOCOL: PLAINTEXT
+  HYDRA_KAFKA_PRODUCER_BOOTSTRAP_SERVERS: b-1.isdvsdevblueuswest2.8xkirx.c14.kafka.us-west-2.amazonaws.com:9098,b-3.isdvsdevblueuswest2.8xkirx.c14.kafka.us-west-2.amazonaws.com:9098,b-2.isdvsdevblueuswest2.8xkirx.c14.kafka.us-west-2.amazonaws.com:9098
+  HYDRA_KAFKA_SECURITY_PROTOCOL: 'PLAINTEXT'
   HYDRA_MIN_INSYNC_REPLICAS: 1
   HYDRA_REPLICATION_FACTOR: 1
   HYDRA_SCHEMA_REGISTRY_URL: https://dvs-dev-schema-registry.eplur-staging.vnerd.com:8081
