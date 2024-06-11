@@ -64,7 +64,8 @@ object Algebras {
         kafkaClientAlgebra = kafkaClient,
         kAA = kafkaAdmin,
         sra = schemaRegistry,
-        config.kafkaClientSecurityConfig
+        config.kafkaClientSecurityConfig,
+        config.consumerGroupsAlgebraConfig.lagPublishInterval
         )
       awsIamClient <- AwsIamClient.make
       awsStsClient <- AwsStsClient.make

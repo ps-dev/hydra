@@ -531,7 +531,7 @@ object KafkaClientAlgebra {
     : fs2.Stream[F, Either[Throwable, (StringRecord, (Partition, Offset))]] = ???
 
     override def consumeSafelyWithOffsetInfo(topicName: TopicName, consumerGroup: ConsumerGroup, commitOffsets: Boolean)
-    : fs2.Stream[F, Either[Throwable, ((GenericRecord, Option[GenericRecord], Option[Headers]), (Partition, Offset))]] = ???
+    : fs2.Stream[F, Either[Throwable, ((GenericRecord, Option[GenericRecord], Option[Headers]), (Partition, Offset))]] = fs2.Stream.empty
 
     override def withProducerRecordSizeLimit(sizeLimitBytes: Long): F[KafkaClientAlgebra[F]] = Sync[F].delay {
       getTestInstance(cache, schemaRegistryUrl, schemaRegistry, sizeLimitBytes.some)

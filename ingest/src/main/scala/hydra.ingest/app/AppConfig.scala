@@ -209,14 +209,16 @@ object AppConfig {
   final case class ConsumerGroupsAlgebraConfig(
                                                       kafkaInternalConsumerGroupsTopic: String,
                                                       commonConsumerGroup: ConsumerGroup,
-                                                      consumerGroupsConsumerEnabled: Boolean
+                                                      consumerGroupsConsumerEnabled: Boolean,
+                                                      lagPublishInterval: FiniteDuration
                                                     )
 
   private val consumerGroupAlgebraConfig: ConfigValue[ConsumerGroupsAlgebraConfig] =
       (
         env("KAFKA_CONSUMER_GROUPS_INTERNAL_TOPIC_NAME").as[String].default("__consumer_offsets"),
-          env("HYDRA_CONSUMER_GROUPS_COMMON_CONSUMER_GROUP").as[ConsumerGroup].default("kafkaInternalConsumerGroupsTopic-ConsumerGroupName"),
-            env("CONSUMER_GROUPS_CONSUMER_ENABLED").as[Boolean].default(true)
+        env("HYDRA_CONSUMER_GROUPS_COMMON_CONSUMER_GROUP").as[ConsumerGroup].default("kafkaInternalConsumerGroupsTopic-ConsumerGroupName"),
+        env("CONSUMER_GROUPS_CONSUMER_ENABLED").as[Boolean].default(true),
+        env("CONSUMER_GROUPS_INTERNAL_TOPIC_LAG_PUBLISH_INTERVAL").as[FiniteDuration].default(1.minutes)
         ).parMapN(ConsumerGroupsAlgebraConfig)
 
   final case class IngestConfig(
