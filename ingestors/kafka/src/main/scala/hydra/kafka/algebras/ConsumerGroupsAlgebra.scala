@@ -212,7 +212,7 @@ object ConsumerGroupsAlgebra {
           _ <- fs2.Stream.awakeEvery[F](lagPublishInterval).evalMap(_ => getLagOnDvsInternalCGTopic.flatMap(
               lagInfo => Logger[F].info(
                 s"Lag details on ${dvsConsumersTopic}. Total_Offset_Lag = ${lagInfo.totalLag.toString}, " +
-                  s"Lag_percentage = ${lagInfo.lagPercentage.toString}, " +
+                  f"Lag_percentage = ${lagInfo.lagPercentage}%2.4f, " +
                   s"Total_Group_Offset = ${lagInfo.totalGroupOffset}, " +
                   s"Total_Largest_Offset = ${lagInfo.totalLargestOffset}, " +
                   s"Total_active_partitions = ${Option(lagInfo.partitionOffsets).map(_.size).getOrElse(0)}"
