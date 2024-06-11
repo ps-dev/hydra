@@ -33,6 +33,7 @@ import scalacache.Cache
 import scalacache.guava.GuavaCache
 
 import scala.concurrent.ExecutionContext
+import scala.concurrent.duration.DurationInt
 
 
 
@@ -147,7 +148,7 @@ class TopicDeletionEndpointSpec extends Matchers with AnyWordSpecLike with Scala
     implicit val notificationSenderMock: InternalNotificationSender[IO] = getInternalNotificationSenderMock[IO]
     ConsumerGroupsAlgebra.make("",Subject.createValidated("dvs.blah.blah").get,
       Subject.createValidated("dvs.heyo.blah").get,"","","",
-      kafkaClientAlgebra,kafkaAdminAlgebra,schemaAlgebra, kafkaSecurityEmptyConfig)
+      kafkaClientAlgebra,kafkaAdminAlgebra,schemaAlgebra, kafkaSecurityEmptyConfig, 1.minutes)
   }
 
   "The deletionEndpoint path" should {

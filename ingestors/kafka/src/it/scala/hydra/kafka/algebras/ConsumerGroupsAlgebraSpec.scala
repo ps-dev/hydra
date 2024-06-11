@@ -10,7 +10,7 @@ import hydra.common.NotificationsTestSuite
 import hydra.common.alerting.sender.{InternalNotificationSender, NotificationSender}
 import hydra.common.config.KafkaConfigUtils.{KafkaClientSecurityConfig, SchemaRegistrySecurityConfig, kafkaSecurityEmptyConfig}
 import hydra.common.alerting.sender.InternalNotificationSender
-import hydra.kafka.algebras.ConsumerGroupsAlgebra.PartitionOffsetMap
+import hydra.kafka.algebras.ConsumerGroupsAlgebra.{PartitionOffsetMap, PartitionOffsetsWithTotalLag}
 import hydra.kafka.algebras.KafkaClientAlgebra.{OffsetInfo, Record}
 import hydra.kafka.model.TopicConsumer.{TopicConsumerKey, TopicConsumerValue}
 import hydra.kafka.model.TopicConsumerOffset.{TopicConsumerOffsetKey, TopicConsumerOffsetValue}
@@ -72,7 +72,7 @@ class ConsumerGroupsAlgebraSpec extends AnyWordSpecLike with Matchers with ForAl
     kafkaClient <- KafkaClientAlgebra.live[IO](container.bootstrapServers, "https://schema-registry", schemaRegistry , kafkaSecurityEmptyConfig)
 
     consumerGroupAlgebra <- ConsumerGroupsAlgebra.make(internalKafkaConsumerTopic, dvsConsumerTopic, dvsInternalKafkaOffsetsTopic,
-      container.bootstrapServers, consumerGroup, consumerGroup, kafkaClient, kafkaAdmin, schemaRegistry, kafkaSecurityEmptyConfig)
+      container.bootstrapServers, consumerGroup, consumerGroup, kafkaClient, kafkaAdmin, schemaRegistry, kafkaSecurityEmptyConfig, 1.minutes)
     _ <- consumerGroupAlgebra.startConsumer
   } yield {
     runTests(consumerGroupAlgebra, schemaRegistry, kafkaClient, kafkaAdmin)
@@ -185,6 +185,31 @@ class ConsumerGroupsAlgebraSpec extends AnyWordSpecLike with Matchers with ForAl
           case Right(_) => succeed
         }.unsafeRunSync()
       }
+
+      "test getLagOnInternalConsumerTopic to verify no lag with commit offsets as false" in {
+        val (key1, value1) = getGenericRecords(dvsConsumerTopic.value, "abc", "123")
+
+        kafkaClient.publishMessage((key1, Some(value1), None), dvsConsumerTopic.value).unsafeRunSync()
+
+        kafkaClient.consumeMessages(dvsConsumerTopic.value, consumer1, commitOffsets = false)
+          .take(1).compile.last.unsafeRunSync() shouldBe (key1, value1.some, None).some
+
+        cga.getLagOnDvsInternalCGTopic shouldBe ( PartitionOffsetsWithTotalLag(1,1,0,0,_))
+      }
+
+      "test getLagOnInternalConsumerTopic to verify some lag with commit offsets as false" in {
+        val (key1, value1) = getGenericRecords(dvsConsumerTopic.value, "abc", "123")
+        val (key2, value2) = getGenericRecords(dvsConsumerTopic.value, "abcd", "1234")
+
+        kafkaClient.publishMessage((key1, Some(value1), None), dvsConsumerTopic.value).unsafeRunSync()
+        kafkaClient.publishMessage((key2, Some(value2), None), dvsConsumerTopic.value).unsafeRunSync()
+
+        kafkaClient.consumeMessages(dvsConsumerTopic.value, consumer1, commitOffsets = false)
+          .take(1).compile.last.unsafeRunSync() shouldBe (key1, value1.some, None).some
+
+        cga.getLagOnDvsInternalCGTopic shouldBe (PartitionOffsetsWithTotalLag(2, 1, 1, 50, _))
+      }
+
     }
   }
 
