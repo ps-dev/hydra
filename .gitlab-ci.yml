@@ -136,6 +136,7 @@ deploy_dev:
     stage: deploy_dev
     needs: ["publish"]
     extends: .helmDeploy
+    when: manual
     environment:
       name: dev
     before_script:
