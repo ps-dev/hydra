@@ -32,7 +32,7 @@ class TopicMetadataAdapterSpec
       notes = None,
       createdDate = DateTime.now,
       notificationUrl = Some("notification.url"),
-      additionalValidations = None
+      additionalValidationList = None
     )
 
     val resource = toResource(tm)

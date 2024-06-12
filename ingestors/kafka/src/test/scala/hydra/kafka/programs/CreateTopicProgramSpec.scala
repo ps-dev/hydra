@@ -2434,32 +2434,34 @@ class CreateTopicProgramSpec extends AsyncFreeSpec with Matchers with IOSuite {
         consumeFrom           <- Ref[IO].of(Map.empty[Subject, TopicMetadataContainer])
         metadata              <- IO(new TestMetadataAlgebraWithPublishTo(consumeFrom))
         _                     <- metadata.addToMetadata(subject, topicMetadataRequest.copy(
-          additionalValidations = allValidations.map(_.filterNot(_ == MetadataAdditionalValidation.contactValidation))))
+          additionalValidations = allValidations.map(_.filterNot(_ == MetadataAdditionalValidation.contact))))
         ts                    <- initTestServices(new TestKafkaClientAlgebraWithPublishTo(publishTo).some, metadata.some)
         _                     <- ts.program.createTopic(subject, topicMetadataRequest, topicDetails, withRequiredFields = true)
         published             <- publishTo.get
-        expectedTopicMetadata <- TopicMetadataV2.encode[IO](topicMetadataKey, Some(topicMetadataValue.copy(
-          additionalValidations = allValidations.map(_.filterNot(_ == MetadataAdditionalValidation.contactValidation))))) // contactValidation is not added in additionalValidations
+        expectedTopicMetadata <- TopicMetadataV2.encode[IO](
+          topicMetadataKey,
+          Some(topicMetadataValue.copy(additionalValidations = allValidations.map(_.filterNot(_ == MetadataAdditionalValidation.contact))))
+        ) // contactValidation is not added in additionalValidations
       } yield {
         published shouldBe Map(metadataTopic -> (expectedTopicMetadata._1, expectedTopicMetadata._2, None))
       }
     }
 
-    "accept request if the slackChannel in the contact doesn't start with '#' for an old topic." in {
+    "accept request if the slackChannel in the contact doesn't start with '#' for an old topic" in {
       val slackChannel = "dev-data-platform"
       for {
         publishTo             <- Ref[IO].of(Map.empty[String, (GenericRecord, Option[GenericRecord], Option[Headers])])
         consumeFrom           <- Ref[IO].of(Map.empty[Subject, TopicMetadataContainer])
         metadata              <- IO(new TestMetadataAlgebraWithPublishTo(consumeFrom))
         _                     <- metadata.addToMetadata(subject, topicMetadataRequest.copy(
-          additionalValidations = allValidations.map(_.filterNot(_ == MetadataAdditionalValidation.contactValidation))))
+          additionalValidations = allValidations.map(_.filterNot(_ == MetadataAdditionalValidation.contact))))
         ts                    <- initTestServices(new TestKafkaClientAlgebraWithPublishTo(publishTo).some, metadata.some)
         _                     <- ts.program.createTopic(subject, topicMetadataRequest.copy(contact = NonEmptyList.of(Slack.create(slackChannel).get)),
           topicDetails, withRequiredFields = true)
       } yield succeed
     }
 
-    "throw error if the slackChannel in the contact doesn't start with '#' for a new topic." in {
+    "throw error if the slackChannel in the contact doesn't start with '#' for a new topic" in {
       val slackChannel = "dev-data-platform"
       val updatedRequest = topicMetadataRequest.copy(contact = NonEmptyList.of(Slack.create(slackChannel).get))
 

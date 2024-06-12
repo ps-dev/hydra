@@ -205,7 +205,7 @@ class TopicBootstrapActor(
       topicMetadataRequest.notificationUrl,
       new AdditionalValidationUtil(
         isExistingTopic = existingTopicMetadata.isDefined,
-        currentAdditionalValidations = existingTopicMetadata.flatMap(_.additionalValidations)).pickValidations()
+        currentAdditionalValidations = existingTopicMetadata.flatMap(_.additionalValidationList)).pickValidations()
     )
 
     buildAvroRecord(topicMetadata)

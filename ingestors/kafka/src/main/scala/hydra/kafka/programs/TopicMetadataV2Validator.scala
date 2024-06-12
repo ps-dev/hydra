@@ -74,7 +74,7 @@ class TopicMetadataV2Validator[F[_] : Sync](metadataAlgebra: MetadataAlgebra[F],
     val validations = additionalValidations.collect {
       // Add extra validations applicable on topics created after replacementTopics feature was introduced.
       case MetadataAdditionalValidation.replacementTopics => valid
-      case MetadataAdditionalValidation.contactValidation if maybeSlackChannel.isDefined =>
+      case MetadataAdditionalValidation.contact if maybeSlackChannel.isDefined =>
         val slackChannel = maybeSlackChannel.get
         val slackChannelValidation = slackChannel.matches("""^#[a-z][a-z_-]{0,78}$""")
         validate(slackChannelValidation, TopicMetadataError.InvalidContactProvided(slackChannel))

@@ -55,7 +55,7 @@ object TopicMetadataValidator {
 
   private def validateAdditional(request: TopicMetadataRequest): Try[ValidationResponse] = {
     val invalidReasons = request.additionalValidations.getOrElse(Nil).collect {
-      case MetadataAdditionalValidation.contactValidation =>
+      case MetadataAdditionalValidation.contact =>
         validContact(request.contact)
     }.collect {
       case Invalid(reason) => reason
