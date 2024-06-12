@@ -115,7 +115,7 @@
             "namespace": "hydra.kafka.model",
             "symbols": [
               "replacementTopics",
-              "contactValidation",
+              "contact",
               "defaultInRequiredField",
               "timestampMillis"
             ]

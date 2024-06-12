@@ -2412,7 +2412,7 @@ class CreateTopicProgramSpec extends AsyncFreeSpec with Matchers with IOSuite {
       testSuccess(request, previousTopics = topics, createReplacementAndPreviousTopics = true)
     }
 
-    "contactValidation field is added in additionalValidations for a new topic" in {
+    "contact is added in additionalValidations for a new topic" in {
       for {
         publishTo             <- Ref[IO].of(Map.empty[String, (GenericRecord, Option[GenericRecord], Option[Headers])])
         consumeFrom           <- Ref[IO].of(Map.empty[Subject, TopicMetadataContainer])
@@ -2422,13 +2422,13 @@ class CreateTopicProgramSpec extends AsyncFreeSpec with Matchers with IOSuite {
         published             <- publishTo.get
         expectedTopicMetadata <- TopicMetadataV2.encode[IO](
           topicMetadataKey,
-          Some(topicMetadataValue.copy(additionalValidations = allValidations))) // contactValidation is added in topicMetadataValue
+          Some(topicMetadataValue.copy(additionalValidations = allValidations))) // contact validation is added in topicMetadataValue
       } yield {
         published shouldBe Map(metadataTopic -> (expectedTopicMetadata._1, expectedTopicMetadata._2, None))
       }
     }
 
-    "contactValidation field is NOT added in additionalValidations if an existing topic does not have it" in {
+    "contact is NOT added in additionalValidations if an existing topic does not have it" in {
       for {
         publishTo             <- Ref[IO].of(Map.empty[String, (GenericRecord, Option[GenericRecord], Option[Headers])])
         consumeFrom           <- Ref[IO].of(Map.empty[Subject, TopicMetadataContainer])
@@ -2441,7 +2441,7 @@ class CreateTopicProgramSpec extends AsyncFreeSpec with Matchers with IOSuite {
         expectedTopicMetadata <- TopicMetadataV2.encode[IO](
           topicMetadataKey,
           Some(topicMetadataValue.copy(additionalValidations = allValidations.map(_.filterNot(_ == MetadataAdditionalValidation.contact))))
-        ) // contactValidation is not added in additionalValidations
+        ) // contact validation is not added in additionalValidations
       } yield {
         published shouldBe Map(metadataTopic -> (expectedTopicMetadata._1, expectedTopicMetadata._2, None))
       }
