@@ -733,7 +733,7 @@ class TopicBootstrapActorSpec
                        |	"dataClassification": "Public",
                        |	"subDataClassification": "Public",
                        |	"dataSourceOwner": "BARTON",
-                       |	"contact": "slackity slack dont talk back",
+                       |	"contact": "#slackity slack dont talk back",
                        |	"psDataLake": false,
                        |	"additionalDocumentation": "akka://some/path/here.jpggifyo",
                        |	"notes": "here are some notes topkek",
