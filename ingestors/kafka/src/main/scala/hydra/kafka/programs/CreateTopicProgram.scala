@@ -12,7 +12,7 @@ import org.apache.avro.Schema
 import retry.syntax.all._
 import retry._
 import cats.implicits._
-import hydra.common.validation.{AdditionalValidation, AdditionalValidationUtil}
+import hydra.common.validation.AdditionalValidationUtil
 import hydra.kafka.model.TopicMetadataV2Request.Subject
 
 import scala.language.higherKinds

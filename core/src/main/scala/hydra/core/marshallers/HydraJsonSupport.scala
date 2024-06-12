@@ -160,7 +160,7 @@ trait HydraJsonSupport extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val genericErrorFormat = jsonFormat2(GenericError)
 
   implicit val additionalValidationFormat: EnumEntryJsonFormat[AdditionalValidation] =
-    new EnumEntryJsonFormat[AdditionalValidation](Seq.empty)
+    new EnumEntryJsonFormat[AdditionalValidation](AdditionalValidation.allValidations.getOrElse(List.empty))
 
   implicit val topicCreationMetadataFormat = jsonFormat13(TopicMetadataRequest)
 

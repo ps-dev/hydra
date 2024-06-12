@@ -141,7 +141,7 @@ class BootstrapEndpointSpec
        |  ${if (previousTopics.nonEmpty) s""""previousTopics": ${previousTopics.toJson},""" else ""}
        |	${if (subDataClassification.isDefined) s""""subDataClassification": "${subDataClassification.get}",""" else ""}
        |	"dataSourceOwner": "BARTON",
-       |	"contact": "slackity slack dont talk back",
+       |	"contact": "#slackity-slack-dont-talk-back",
        |	"psDataLake": false,
        |	"additionalDocumentation": "akka://some/path/here.jpggifyo",
        |	"notes": "here are some notes topkek",
@@ -258,7 +258,7 @@ class BootstrapEndpointSpec
           |	"dataClassification": "Public",
           |	"subDataClassification": "Public",
           |	"dataSourceOwner": "BARTON",
-          |	"contact": "slackity slack dont talk back",
+          |	"contact": "#slackity-slack-dont-talk-back",
           |	"psDataLake": false,
           |	"additionalDocumentation": "akka://some/path/here.jpggifyo",
           |	"notes": "here are some notes topkek",
@@ -739,7 +739,7 @@ class BootstrapEndpointSpec
          |    }
          |  },
          |  "additionalDocumentation": "akka://some/path/here.jpggifyo",
-         |  "contact": "slackity slack dont talk back",
+         |  "contact": "#slackity-slack-dont-talk-back",
          |  "createdDate": $createdDate,
          |  "dataClassification": "InternalUse",
          |  "deprecated": $deprecated,
@@ -752,7 +752,8 @@ class BootstrapEndpointSpec
          |  "schemaId": $schemaId,
          |  "streamType": "Notification",
          |  "subDataClassification": "InternalUseOnly",
-         |  "subject": "$topicName"
+         |  "subject": "$topicName",
+         |  "additionalValidationList":["replacementTopics","contact","defaultInRequiredField","timestampMillis"]
          |}""".stripMargin.parseJson
   }
 }
