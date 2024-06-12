@@ -2422,7 +2422,7 @@ class CreateTopicProgramSpec extends AsyncFreeSpec with Matchers with IOSuite {
         published             <- publishTo.get
         expectedTopicMetadata <- TopicMetadataV2.encode[IO](
           topicMetadataKey,
-          Some(topicMetadataValue.copy(additionalValidations = allValidations))) // contact validation is added in topicMetadataValue
+          Some(topicMetadataValue.copy(additionalValidations = allValidations))) // contact validation is added in additionalValidations
       } yield {
         published shouldBe Map(metadataTopic -> (expectedTopicMetadata._1, expectedTopicMetadata._2, None))
       }

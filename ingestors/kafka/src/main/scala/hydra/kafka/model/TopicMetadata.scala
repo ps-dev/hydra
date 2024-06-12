@@ -40,7 +40,7 @@ case class TopicMetadata(
     id: UUID,
     createdDate: org.joda.time.DateTime,
     notificationUrl: Option[String],
-    additionalValidationList: Option[List[AdditionalValidation]] = None // Never pick additionalValidations from the request.
+    additionalValidationList: Option[List[AdditionalValidation]] = None // Never pick this value from the request.
 )
 
 object TopicMetadataV2 {
