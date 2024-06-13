@@ -224,9 +224,9 @@ final class BootstrapEndpointV2Spec
         .unsafeRunSync()
     }
 
-    "reject a request when slackChannel in contact does not start with # for a new topic" in {
+    "reject a request when slackChannel in contact is not valid for a new topic" in {
       val request = topicMetadataV2Request.copy(
-        contact = NonEmptyList.of(Slack.create("dev-data-platform").get),
+        contact = NonEmptyList.of(Slack.create("dev-data-platform").get), // does not start with #
       ).toJson.compactPrint
 
       testCreateTopicProgram.map {

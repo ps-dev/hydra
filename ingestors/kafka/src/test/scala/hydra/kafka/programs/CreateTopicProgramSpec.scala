@@ -2447,7 +2447,7 @@ class CreateTopicProgramSpec extends AsyncFreeSpec with Matchers with IOSuite {
       }
     }
 
-    "accept request if the slackChannel in the contact doesn't start with '#' for an old topic" in {
+    "accept request if the slackChannel in the contact is not valid for an old topic" in {
       val slackChannel = "dev-data-platform"
       for {
         publishTo             <- Ref[IO].of(Map.empty[String, (GenericRecord, Option[GenericRecord], Option[Headers])])
@@ -2461,7 +2461,7 @@ class CreateTopicProgramSpec extends AsyncFreeSpec with Matchers with IOSuite {
       } yield succeed
     }
 
-    "throw error if the slackChannel in the contact doesn't start with '#' for a new topic" in {
+    "throw error if the slackChannel in the contact is not valid for a new topic" in {
       val slackChannel = "dev-data-platform"
       val updatedRequest = topicMetadataRequest.copy(contact = NonEmptyList.of(Slack.create(slackChannel).get))
 
