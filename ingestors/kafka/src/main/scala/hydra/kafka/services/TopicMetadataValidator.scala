@@ -1,7 +1,8 @@
 package hydra.kafka.services
 
-import hydra.common.validation.MetadataAdditionalValidation
+import hydra.common.validation.{AdditionalValidation, AdditionalValidationUtil, MetadataAdditionalValidation}
 import hydra.core.marshallers.{GenericSchema, TopicMetadataRequest}
+import hydra.kafka.model.TopicMetadata
 import hydra.kafka.programs.TopicMetadataError
 import hydra.kafka.util.{KafkaUtils, MetadataUtils}
 import hydra.kafka.util.MetadataUtils
@@ -20,7 +21,7 @@ object TopicMetadataValidator {
       validFormat
     )
 
-  def validate(request: TopicMetadataRequest, schema: GenericSchema, kafkaUtils: KafkaUtils): Try[ValidationResponse] =
+  def validate(request: TopicMetadataRequest, schema: GenericSchema, additionalValidations:Option[List[AdditionalValidation]], kafkaUtils: KafkaUtils): Try[ValidationResponse] = {
     mergeValidationResponses(
       List(
         validateSubject(Option(schema)),
@@ -29,9 +30,10 @@ object TopicMetadataValidator {
         validateDeprecatedTopicHasReplacementTopic(request.deprecated.contains(true), request.replacementTopics, schema.subject),
         validateNonDepSelfRefReplacementTopics(request.deprecated.contains(true), request.replacementTopics, schema.subject),
         validatePreviousTopicsCannotPointItself(request.previousTopics, schema.subject),
-        validateAdditional(request)
+        validateAdditional(request, additionalValidations)
       )
     )
+  }
 
   def validateSubject(gOpt: Option[GenericSchema]): Try[ValidationResponse] = {
     gOpt match {
@@ -53,21 +55,19 @@ object TopicMetadataValidator {
       case _ => scala.util.Success(Valid)
     }
 
-  private def validateAdditional(request: TopicMetadataRequest): Try[ValidationResponse] = {
-    val invalidReasons = request.additionalValidations.getOrElse(Nil).collect {
-      case MetadataAdditionalValidation.contact =>
-        validContact(request.contact)
-    }.collect {
-      case Invalid(reason) => reason
+  private def validateAdditional(request: TopicMetadataRequest, additionalValidations:Option[List[AdditionalValidation]]): Try[ValidationResponse] =
+    additionalValidations match {
+      case Some(validations) =>
+        val invalidReasons = validations.collect {
+          case MetadataAdditionalValidation.contact =>
+            validContact(request.contact)
+        }.collect {
+          case Invalid(reason) => reason
+        }
+        if (invalidReasons.nonEmpty) Failure(ValidatorException(invalidReasons))
+        else Success(Valid)
+      case None => Success(Valid)
     }
-
-    if (invalidReasons.nonEmpty) {
-      Failure(ValidatorException(invalidReasons))
-    }
-    else {
-      Success(Valid)
-    }
-  }
 
   private def validContact(contactField: String): ValidationResponse = {
     if (contactField.matches("""^#[a-z][a-z_-]{0,78}$""")) {
