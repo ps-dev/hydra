@@ -752,8 +752,7 @@ class BootstrapEndpointSpec
          |  "schemaId": $schemaId,
          |  "streamType": "Notification",
          |  "subDataClassification": "InternalUseOnly",
-         |  "subject": "$topicName",
-         |  "additionalValidationList":["replacementTopics","contact","defaultInRequiredField","timestampMillis"]
+         |  "subject": "$topicName"
          |}""".stripMargin.parseJson
   }
 }
