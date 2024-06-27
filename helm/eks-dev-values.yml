@@ -10,7 +10,7 @@ deployment:
       maxUnavailable: 0
     type: RollingUpdate
 
-replicas: 0
+replicas: 2
 
 #Adding velero backup for k8s services
 #velero.io/exclude-from-backup" = true 
