@@ -281,18 +281,18 @@ object SchemaRegistry {
             case _ => true // Retry for all other exceptions
           },
           policy = retryPolicy,
-          onError = onFailure("getAllVersions")
+          onError = onFailure("getAllVersions", subject)
         )
 
       override def getAllVersions(subject: String): F[List[SchemaId]] =
         Sync[F].fromTry(Try(schemaRegistryClient.getAllVersions(subject)))
           .map(_.asScala.toList.map(_.toInt)).recover {
           case r: RestClientException if r.getErrorCode == 40401 => List.empty
-        }.retryingOnAllErrors(retryPolicy, onFailure("getAllVersions"))
+        }.retryingOnAllErrors(retryPolicy, onFailure("getAllVersions", subject))
 
-      private def onFailure(resourceTried: String): (Throwable, RetryDetails) => F[Unit] =
+      private def onFailure(resourceTried: String, subject: String): (Throwable, RetryDetails) => F[Unit] =
         (error, retryDetails) =>
-          Logger[F].info(s"Retrying due to failure in SchemaRegistry.$resourceTried: $error. RetryDetails: $retryDetails")
+          Logger[F].info(s"Retrying due to failure in SchemaRegistry.$resourceTried: $error. Subject: $subject. RetryDetails: $retryDetails")
 
       override def getAllSubjects: F[List[String]] =
         Sync[F].delay {
