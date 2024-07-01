@@ -186,7 +186,7 @@ object SchemaRegistry {
 
   private def getFromSchemaRegistryClient[F[_]: Sync: Logger: Sleep](schemaRegistryClient: SchemaRegistryClient, schemaRegistryClientRetries: Int, schemaRegistryClientRetriesDelay: FiniteDuration): SchemaRegistry[F] =
     new SchemaRegistry[F] {
-      val retryPolicy = limitRetries(schemaRegistryClientRetries) |+| constantDelay[F](schemaRegistryClientRetriesDelay)
+      val retryPolicy = limitRetries(schemaRegistryClientRetries) |+| exponentialBackoff[F](schemaRegistryClientRetriesDelay)
 
       private implicit class SchemaOps(sch: Schema) {
         def fields: List[Schema.Field] = fieldsEval("topLevel", box = false).value
