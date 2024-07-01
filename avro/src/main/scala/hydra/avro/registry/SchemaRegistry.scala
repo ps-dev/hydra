@@ -275,7 +275,14 @@ object SchemaRegistry {
       ): F[SchemaVersion] =
         Sync[F].delay {
           schemaRegistryClient.getVersion(subject, schema)
-        }.retryingOnAllErrors(retryPolicy, onFailure("getVersion"))
+        }.retryingOnSomeErrors(
+          isWorthRetrying = {
+            case r: RestClientException if r.getErrorCode == 40401 => false // Do not retry for RestClientException with error code 40401
+            case _ => true // Retry for all other exceptions
+          },
+          policy = retryPolicy,
+          onError = onFailure("getAllVersions")
+        )
 
       override def getAllVersions(subject: String): F[List[SchemaId]] =
         Sync[F].fromTry(Try(schemaRegistryClient.getAllVersions(subject)))
