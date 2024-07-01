@@ -1,0 +1,61 @@
+image:
+  repository: harbor.vnerd.com/library/hydra
+  pullPolicy: Always
+  tag: '%IMAGE_TAG%'
+
+deployment:
+  apiVersion: "apps/v1"
+  updateStrategy:
+    rollingUpdate:
+      maxUnavailable: 0
+    type: RollingUpdate
+
+replicas: 2
+
+#Adding velero backup for k8s services
+#velero.io/exclude-from-backup" = true 
+service:
+  type: ClusterIP
+  port: 8088
+  annotations: {}
+  labels: {}
+
+
+ingress:
+  enabled: true
+  ingressClassName: internal
+  annotations: {}
+  labels: {}
+  hosts:
+    - hydra-publish-dev.eplur-staging.vnerd.com
+  tls:
+    - hosts:
+        - hydra-publish-dev.eplur-staging.vnerd.com
+  path: /
+  pathType: Prefix
+
+
+resources:
+  limits:
+    memory: 7Gi
+  requests:
+    cpu: 250m
+    memory: 2Gi
+
+tolerations: []
+
+nodeSelector: {}
+
+config:
+  HYDRA_KAFKA_PRODUCER_BOOTSTRAP_SERVERS: b-3.isdvsdevblueuswest2.8xkirx.c14.kafka.us-west-2.amazonaws.com:9092,b-2.isdvsdevblueuswest2.8xkirx.c14.kafka.us-west-2.amazonaws.com:9092,b-1.isdvsdevblueuswest2.8xkirx.c14.kafka.us-west-2.amazonaws.com:9092
+  HYDRA_KAFKA_SECURITY_PROTOCOL: 'PLAINTEXT'
+  HYDRA_MIN_INSYNC_REPLICAS: 1
+  HYDRA_REPLICATION_FACTOR: 1
+  HYDRA_SCHEMA_REGISTRY_URL: https://dvs-dev-schema-registry.eplur-staging.vnerd.com:8081
+  HYDRA_V2_METADATA_CONTACT: '#dev-data-platform'
+  HYDRA_V2_METADATA_CONSUMER_GROUP: 'dev-cluster-v2MetadataConsumer'
+  HYDRA_V2_CREATE_TOPICS_ENABLED: 'true'
+  HYDRA_V2_METADATA_CREATE_ON_STARTUP: 'true'
+  LOG_DIR: /var/log/hydra/
+  LOG_LEVEL: INFO
+

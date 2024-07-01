@@ -17,7 +17,7 @@
 package hydra.kafka.producer
 
 import hydra.core.transport.AckStrategy
-import org.apache.commons.lang3.StringUtils
+
 
 /**
   * Created by alexsilva on 11/30/15.
