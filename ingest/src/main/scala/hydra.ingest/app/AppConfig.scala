@@ -38,7 +38,7 @@ object AppConfig {
         .as[String]
         .default("http://localhost:8081"),
       env("HYDRA_MAX_SCHEMAS_PER_SUBJECT").as[Int].default(1000),
-      env("HYDRA_SCHEMA_REGISTRY_RETRIES").as[Int].default(5),
+      env("HYDRA_SCHEMA_REGISTRY_RETRIES").as[Int].default(3),
       env("HYDRA_SCHEMA_REGISTRY_RETRIES_DELAY").as[FiniteDuration].default(500.milliseconds)
       ).parMapN(SchemaRegistryConfig)
 
