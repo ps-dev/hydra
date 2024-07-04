@@ -216,26 +216,8 @@ slack:dev:
     ENV: "DEV"
     SERVICE_NAME: "dev-hydra"
     
-deploy_newrelic_staging: 
-  stage: Staging
-  extends: .saltDeploy
-  rules: 
-    - if: $run_clean_up == "False" && $CI_PIPELINE_SOURCE != "schedule" && $CI_PIPELINE_SOURCE != "merge_request_event"
-      when: manual 
-    - when: never
-  variables:
-    CI_JOB_STAGE: stage
-    SALT_TARGET: roles:hydra-publish-msk
-    SALT_PASSWORD: ${LDAP_PASS}
-    SALT_ARGUMENTS: newrelic-java-apm 
-    SALT_USERNAME: tcity-data-platform
-    SALT_KWARGS: 'failhard=true'
-    SALT_URL: https://saltmaster-stage.vnerd.com:8000
-  
 deploy_staging: 
   stage: Staging
-  needs:
-    - deploy_newrelic_staging
   extends: .saltDeploy
   rules: 
     - if: $run_clean_up == "False" && $CI_PIPELINE_SOURCE != "schedule" && $CI_PIPELINE_SOURCE != "merge_request_event"
@@ -274,26 +256,8 @@ slack:staging:
       Version: ${PUBLISH_BUILD_VERSION}
       [[PIPELINE_LINK]]
 
-deploy_newrelic_production: 
-  stage: Production
-  extends: .saltDeploy
-  rules: 
-    - if: $run_clean_up == "False" && $CI_PIPELINE_SOURCE != "schedule" && $CI_COMMIT_BRANCH == "master" && $CI_PIPELINE_SOURCE != "merge_request_event"
-      when: manual 
-    - when: never
-  variables:
-    CI_JOB_STAGE: stage
-    SALT_TARGET: roles:hydra-publish-msk
-    SALT_PASSWORD: ${LDAP_PASS}
-    SALT_ARGUMENTS: newrelic-java-apm 
-    SALT_USERNAME: tcity-data-platform
-    SALT_KWARGS: 'failhard=true'
-    SALT_URL: https://saltmaster-production.vnerd.com:8000
-
 deploy_production:
   stage: Production
-  needs:
-    - deploy_newrelic_production
   extends: .saltDeploy
   rules: 
     - if: $run_clean_up == "False" && $CI_PIPELINE_SOURCE != "schedule" && $CI_COMMIT_BRANCH == "master" && $CI_PIPELINE_SOURCE != "merge_request_event"
