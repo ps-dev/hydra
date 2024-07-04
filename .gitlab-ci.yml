@@ -107,10 +107,10 @@ package:
     - curl -O https://download.newrelic.com/newrelic/java-agent/newrelic-agent/4.4.0/newrelic-agent-4.4.0.jar
     - curl -O https://download.newrelic.com/newrelic/java-agent/newrelic-agent/4.4.0/newrelic.yml
     - cd ../../
-    - echo $BUILD_VERSION > VERSION
-    - tar czf ${ARTIFACT_NAME}-${BUILD_VERSION}.tgz --exclude=*.tmp --exclude=*.tgz --exclude=*.tgz.md5 VERSION ps-publish/
-    - echo "##teamcity[publishArtifacts '${ARTIFACT_NAME}-${BUILD_VERSION}.tgz']"
-    - md5sum ${ARTIFACT_NAME}-${BUILD_VERSION}.tgz > ${ARTIFACT_NAME}-${BUILD_VERSION}.tgz.md5
+    - echo $PUBLISH_BUILD_VERSION > VERSION
+    - tar czf ${ARTIFACT_NAME}-${PUBLISH_BUILD_VERSION}.tgz --exclude=*.tmp --exclude=*.tgz --exclude=*.tgz.md5 VERSION ps-publish/
+    - echo "##teamcity[publishArtifacts '${ARTIFACT_NAME}-${PUBLISH_BUILD_VERSION}.tgz']"
+    - md5sum ${ARTIFACT_NAME}-${PUBLISH_BUILD_VERSION}.tgz > ${ARTIFACT_NAME}-${PUBLISH_BUILD_VERSION}.tgz.md5
     - echo "${ARTIFACTORY_ARTIFACT_URL}"
     - |
       curl \
@@ -119,8 +119,8 @@ package:
       -T ${ARTIFACTORY_ARTIFACT_VERSION}
   artifacts:
     paths:
-      - ${ARTIFACT_NAME}-${BUILD_VERSION}.tgz
-      - ${ARTIFACT_NAME}-${BUILD_VERSION}.tgz.md5
+      - ${ARTIFACT_NAME}-${PUBLISH_BUILD_VERSION}.tgz
+      - ${ARTIFACT_NAME}-${PUBLISH_BUILD_VERSION}.tgz.md5
       - ps-publish/
 
 publish:
