@@ -138,7 +138,7 @@ publish:
   before_script:
     - echo -n "$DOCKER_REGISTRY_PASSWORD" | docker login -u "$DOCKER_REGISTRY_USERNAME" --password-stdin "$DOCKER_REGISTRY_URL"
   script:
-    - docker build --build-arg BUILD_NUMBER=${PUBLISH_BUILD_VERSION} -t ${IMAGE_NAME} . 
+    - docker build --build-arg BUILD_NUMBER=${PUBLISH_BUILD_VERSION} -t ${IMAGE_NAME} -f Dockerfile.new . 
     - docker tag ${IMAGE_NAME} ${DOCKER_REGISTRY_IMAGE}:${PUBLISH_BUILD_VERSION}
     - docker push ${DOCKER_REGISTRY_IMAGE}:${PUBLISH_BUILD_VERSION}
     - docker tag ${IMAGE_NAME} ${DOCKER_REGISTRY_IMAGE}:latest
