@@ -3,13 +3,26 @@ include:
     file: '/salt-deploy/helper.yml'
   - project: 'pluralsight/experience/gitlab-helpers'
     file: '/helm-deploy/helper.yml'
+  - project: 'pluralsight/Technology/adapt/data-platform/gitlab-fragments/helm_deploy'
+    ref: data-ops
+    file: 'helm-destroy.yml'
   - project: 'pluralsight/Technology/adapt/data-platform/gitlab-fragments/snyk'
     ref: main
     file: 'snyk-check.yml'
 
-image: openjdk:8
+
+image: harbor.vnerd.com/library/hydra-build-tools:latest
 
 variables:
+  BUILD_FLAG: 
+    description: "Do you want to Build and Deploy ?"
+    value: "true"
+    options:
+      - "true"
+      - "false"
+  MANUAL_BUILD_VERSION: 
+    description: "Specify the Build Version, If you are not sure about the BUILD Version. Please Keep Build Flag to False"
+    value: ""
   ARTIFACT_NAME: hydra-publish
   IMAGE_NAME: hydra
   DOCKER_REGISTRY_URL: harbor.vnerd.com/library
@@ -17,58 +30,73 @@ variables:
   ARTIFACTORY_REPOSITORY_URL: https://repository.vnerd.com/artifactory
   ARTIFACTORY_REPOSITORY: bounded-context
   ARTIFACTORY_ID: hydra/publish
-  ARTIFACTORY_ARTIFACT_VERSION: ${ARTIFACT_NAME}-${BUILD_VERSION}.tgz
   ARTIFACTORY_PATH: ${ARTIFACTORY_ID}/${ARTIFACTORY_ARTIFACT_VERSION}
   ARTIFACTORY_ARTIFACT_URL: ${ARTIFACTORY_REPOSITORY_URL}/${ARTIFACTORY_REPOSITORY}/${ARTIFACTORY_PATH}
-  BUILD_VERSION: 1.0.${CI_PIPELINE_IID}
-  BOUNDED_CONTEXT_DEV: adapt-dvs-dev
-  BOUNDED_CONTEXT_STAGING: adapt-dvs
-  BOUNDED_CONTEXT_PROD: adapt-dvs
-  ENV: ${CI_JOB_STAGE} 
   SERVICE_NAME: "dev-hydra"
   SLACK_ICON_EMOJI: ":gitlab:"
   SLACK_CHANNEL: '#data-platform-alerts'
-  SLACK_MESSAGE: |
-    *[[SERVICE_NAME]]* deployed to *[[ENV]]*.
-    Version: *[[BUILD_VERSION]]*
-    [[PIPELINE_LINK]]
   SLACK_USERNAME: 'GITLAB'
   SNYK_SLACK_CHANNEL: '#dataops-snyk-vulnerability-alerts'
   SNYK_SLACK_ICON_EMOJI: ":snyk:"
   SNYK_ORG_ID: "d8094638-7a37-413f-b1b4-ad840fb9e239"
   SNYK_PROJECT_ID: "d243a0e6-4ced-4efe-83fc-169d03b40cc7"
   SNYK_PROJECT_URL: "https://app.snyk.io/org/ps-data-services"
-
-before_script:
-  - apt-get update -yqq
-  - apt-get install -yqq apt-transport-https apt-utils
-  - echo "deb https://repo.scala-sbt.org/scalasbt/debian /" | tee -a /etc/apt/sources.list.d/sbt.list
-  - mkdir -p /root/.gnupg
-  - gpg --recv-keys --no-default-keyring --keyring gnupg-ring:/etc/apt/trusted.gpg.d/scalasbt-release.gpg --keyserver hkp://keyserver.ubuntu.com:80 2EE0EA64E40A89B84B2DF73499E82A75642AC823
-  - chmod 644 /etc/apt/trusted.gpg.d/scalasbt-release.gpg
-  - apt-get update -yqq
-  - apt-get install -yqq sbt
+  run_clean_up: "False"
+  HELM_VERSION: 3.13.2
 
 stages:
   - build
   - code-analysis
   - package
   - publish
-  - deploy_dev
-  - deploy_staging
-  - deploy_production
-  - notify
+  - Dev
+  - Staging
+  - Production
+  - cleanup
+
+
+workflow: 
+  rules:
+    - if: $BUILD_FLAG == "false"
+      variables:
+        PUBLISH_BUILD_VERSION: ${MANUAL_BUILD_VERSION}
+        ARTIFACTORY_ARTIFACT_VERSION: ${ARTIFACT_NAME}-${MANUAL_BUILD_VERSION}.tgz
+    - if: $BUILD_FLAG == "true"
+      variables:
+        PUBLISH_BUILD_VERSION: 1.0.${CI_PIPELINE_IID}
+        ARTIFACTORY_ARTIFACT_VERSION: ${ARTIFACT_NAME}-${PUBLISH_BUILD_VERSION}.tgz
+
+
+snyk-code-check:
+  rules: 
+    - if: $run_clean_up == "False" && $CI_PIPELINE_SOURCE != "schedule" && $BUILD_FLAG == "true"
+      when: always 
+    - when: never
+
+snyk-notify:
+  rules: 
+    - if: $run_clean_up == "False" && $CI_PIPELINE_SOURCE != "schedule" && $BUILD_FLAG == "true"
+      when: always 
+    - when: never
 
 build:
   stage: build
   cache: []
   retry: 2
+  rules: 
+    - if: $run_clean_up == "False" && $CI_PIPELINE_SOURCE != "schedule" && $BUILD_FLAG == "true"
+      when: always 
+    - when: never
   script:
     - sbt clean compile test
 
 package:
   stage: package
   cache: []
+  rules: 
+    - if: $run_clean_up == "False" && $CI_PIPELINE_SOURCE != "schedule" && $BUILD_FLAG == "true" && $CI_PIPELINE_SOURCE != "merge_request_event"
+      when: on_success 
+    - when: never
   script:
     - sbt universal:packageBin
     - ls ingest/target/universal/*.zip | xargs -I {} unzip {} -d ps-publish
@@ -98,6 +126,10 @@ package:
 publish:
   stage: publish
   image: harbor.vnerd.com/proxy/library/docker:cli
+  rules: 
+    - if: $run_clean_up == "False" && $CI_PIPELINE_SOURCE != "schedule"  && $BUILD_FLAG == "true" && $CI_PIPELINE_SOURCE != "merge_request_event"
+      when: on_success 
+    - when: never
   tags:
     - ps
     - docker
@@ -106,16 +138,11 @@ publish:
   before_script:
     - echo -n "$DOCKER_REGISTRY_PASSWORD" | docker login -u "$DOCKER_REGISTRY_USERNAME" --password-stdin "$DOCKER_REGISTRY_URL"
   script:
-    - pwd
-    - ls -lh
-    - docker build -t ${IMAGE_NAME} -f Dockerfile.new .
-    - docker tag ${IMAGE_NAME} ${DOCKER_REGISTRY_IMAGE}:${BUILD_VERSION}-${CI_COMMIT_SHORT_SHA}
-    - docker push ${DOCKER_REGISTRY_IMAGE}:${BUILD_VERSION}-${CI_COMMIT_SHORT_SHA}
+    - docker build --build-arg BUILD_NUMBER=${PUBLISH_BUILD_VERSION} -t ${IMAGE_NAME} . 
+    - docker tag ${IMAGE_NAME} ${DOCKER_REGISTRY_IMAGE}:${PUBLISH_BUILD_VERSION}
+    - docker push ${DOCKER_REGISTRY_IMAGE}:${PUBLISH_BUILD_VERSION}
     - docker tag ${IMAGE_NAME} ${DOCKER_REGISTRY_IMAGE}:latest
     - docker push ${DOCKER_REGISTRY_IMAGE}:latest
-    - CURYEAR=$(date +%Y)
-    - CURMONTH=$(date +%-m)
-    - echo -n "${CURYEAR}.${CURMONTH}.${BUILD_VERSION}" > VERSION
   variables:
     DOCKER_HOST: tcp://localhost:2376
     DOCKER_TLS_CERTDIR: "/certs"
@@ -132,52 +159,92 @@ publish:
   variables:
     NODE_ENV: $ENV
 
-deploy_dev:
-    stage: deploy_dev
-    needs: ["publish"]
+EKS:dev_deploy:
+    stage: Dev
     extends: .helmDeploy
-    when: manual
+    rules: 
+    - if: $run_clean_up == "False" && $CI_PIPELINE_SOURCE != "schedule" && $CI_PIPELINE_SOURCE != "merge_request_event"
+      when: manual 
+    - if: $BUILD_FLAG == "true"  &&  $CI_PIPELINE_SOURCE != "schedule" && $CI_PIPELINE_SOURCE != "merge_request_event"
+      needs: ["publish"] 
+      when: manual
+    - when: never
     environment:
       name: dev
     before_script:
-      - sed -i -e "s/%IMAGE_TAG%/1.0.${CI_PIPELINE_IID}-${CI_COMMIT_SHORT_SHA}/g" $HELM_VALUES_FILE
-      - cat $HELM_VALUES_FILE
-      - echo 1.0.${CI_PIPELINE_IID}-${CI_COMMIT_SHORT_SHA}
+      - echo "$MANUAL_BUILD_VERSION"
+      - echo "$ARTIFACTORY_ARTIFACT_VERSION"
+      - sed -i -e "s/%IMAGE_TAG%/${PUBLISH_BUILD_VERSION}/g" $HELM_VALUES_FILE
+      - sed -i -e "s/%BRANCH_NAME%/${CI_COMMIT_BRANCH}/g" $HELM_VALUES_FILE
+      - sed -i -e "s/%DEPLOYED_BY%/${GITLAB_USER_LOGIN}/g" $HELM_VALUES_FILE
+      - echo ${PUBLISH_BUILD_VERSION}
       - kubectl config set-cluster app-${CI_ENVIRONMENT_NAME%/*} --server=${HELM_K8S_CLUSTER_URL} --embed-certs --certificate-authority="$HELM_K8S_CLUSTER_CACERT"
       - kubectl config set-credentials deploy --token=`echo ${HELM_DEPLOY_TOKEN} | base64 -d`
       - kubectl config set-context deploy --cluster=app-${CI_ENVIRONMENT_NAME%/*} --namespace=${HELM_TARGET_NAMESPACE} --user=deploy
       - kubectl config use-context deploy
     variables:
+      HELM_TIMEOUT: 1800s
       HELM_CHART_NAME: ps-service
       HELM_DEPLOY_TOKEN: ${HELM_DEV_DEPLOY_TOKEN}
       K8S_CLUSTER_NAME: app-eks.eplur-staging.us-west-2
       HELM_K8S_CLUSTER_URL: https://6C29C0073BB19BEF220B9437E6962AF2.gr7.us-west-2.eks.amazonaws.com
-      HELM_TARGET_NAMESPACE: ${BOUNDED_CONTEXT_DEV}
-      APPLICATION_ROLE: dev-hydra
+      BOUNDED_CONTEXT: adapt-dvs-dev
+      HELM_TARGET_NAMESPACE: ${BOUNDED_CONTEXT}
+      APPLICATION_ROLE: "dev-hydra-${CI_COMMIT_BRANCH}"
       HELM_VALUES_FILE: helm/eks-dev-values.yml
+      SERVICE_NAME: "${ENV}-hydra-${CI_COMMIT_BRANCH}"
 
 slack:dev:
-  stage: notify
-  extends: .notify-all
-  when: on_success
-  needs: ['deploy_dev']
+  stage: Dev
+  extends: .notify-all 
+  rules: 
+    - if: $run_clean_up == "False" && $CI_PIPELINE_SOURCE != "schedule" && $CI_PIPELINE_SOURCE != "merge_request_event"
+      variables:
+        SLACK_MESSAGE: |
+          *[[SERVICE_NAME]]* deployed to *[[ENV]] Cluster* 
+          Branch: ${CI_COMMIT_BRANCH}
+          Version: ${PUBLISH_BUILD_VERSION}
+          URL: https://hydra-publish-dev-${CI_COMMIT_BRANCH}.eplur-staging.vnerd.com/
+          [[PIPELINE_LINK]]
+      needs: ['EKS:dev_deploy']
+      when: on_success 
+    - when: never
   before_script:
     - echo "Sending notification to slack"
+    - echo "$SLACK_MESSAGE"
   variables:
-    ENV: "DEV Cluster"
+    ENV: "DEV"
     SERVICE_NAME: "dev-hydra"
-
-
-deploy_staging: 
-  stage: deploy_staging
+    
+deploy_newrelic_staging: 
+  stage: Staging
   extends: .saltDeploy
-  when: manual
-  environment:
-      name: staging
+  rules: 
+    - if: $run_clean_up == "False" && $CI_PIPELINE_SOURCE != "schedule" && $CI_PIPELINE_SOURCE != "merge_request_event"
+      when: manual 
+    - when: never
+  variables:
+    CI_JOB_STAGE: stage
+    SALT_TARGET: roles:hydra-publish-msk
+    SALT_PASSWORD: ${LDAP_PASS}
+    SALT_ARGUMENTS: newrelic-java-apm 
+    SALT_USERNAME: tcity-data-platform
+    SALT_KWARGS: 'failhard=true'
+    SALT_URL: https://saltmaster-stage.vnerd.com:8000
+  
+deploy_staging: 
+  stage: Staging
+  needs:
+    - deploy_newrelic_staging
+  extends: .saltDeploy
+  rules: 
+    - if: $run_clean_up == "False" && $CI_PIPELINE_SOURCE != "schedule" && $CI_PIPELINE_SOURCE != "merge_request_event"
+      when: on_success 
+    - when: never
   before_script:
-    - cat $SALT_PILLAR
-    - sed -i "s/latest/$BUILD_VERSION/" $SALT_PILLAR
-    - cat $SALT_PILLAR  
+    - | 
+      sed -i -e "s/%latest%/1.0.${CI_PIPELINE_IID}/g" $SALT_PILLAR
+      cat $SALT_PILLAR  
   variables:
     CI_JOB_STAGE: stage
     SALT_TARGET: roles:hydra-publish-msk
@@ -189,26 +256,53 @@ deploy_staging:
     SALT_URL: https://saltmaster-stage.vnerd.com:8000
 
 slack:staging:
-  stage: notify
+  stage: Staging
   extends: .notify-all
-  when: on_success
-  needs: ['deploy_staging']
+  rules: 
+    - if: $run_clean_up == "False" && $CI_PIPELINE_SOURCE != "schedule" && $CI_PIPELINE_SOURCE != "merge_request_event"
+      needs: ['deploy_staging']
+      when: on_success 
+    - when: never
   before_script:
     - echo "Sending notification to slack"
   variables:
     ENV: "Staging Cluster"
     SERVICE_NAME: "staging-hydra-publish"
+    SLACK_MESSAGE: |
+      *[[SERVICE_NAME]]* deployed to *[[ENV]]* Cluster 
+      Branch: ${CI_COMMIT_BRANCH}
+      Version: ${PUBLISH_BUILD_VERSION}
+      [[PIPELINE_LINK]]
 
-deploy_production: 
-  stage: deploy_production
+deploy_newrelic_production: 
+  stage: Production
   extends: .saltDeploy
-  when: manual
-  environment:
-      name: production
+  rules: 
+    - if: $run_clean_up == "False" && $CI_PIPELINE_SOURCE != "schedule" && $CI_COMMIT_BRANCH == "master" && $CI_PIPELINE_SOURCE != "merge_request_event"
+      when: manual 
+    - when: never
+  variables:
+    CI_JOB_STAGE: stage
+    SALT_TARGET: roles:hydra-publish-msk
+    SALT_PASSWORD: ${LDAP_PASS}
+    SALT_ARGUMENTS: newrelic-java-apm 
+    SALT_USERNAME: tcity-data-platform
+    SALT_KWARGS: 'failhard=true'
+    SALT_URL: https://saltmaster-production.vnerd.com:8000
+
+deploy_production:
+  stage: Production
+  needs:
+    - deploy_newrelic_production
+  extends: .saltDeploy
+  rules: 
+    - if: $run_clean_up == "False" && $CI_PIPELINE_SOURCE != "schedule" && $CI_COMMIT_BRANCH == "master" && $CI_PIPELINE_SOURCE != "merge_request_event"
+      when: on_success 
+    - when: never
   before_script:
-    - cat $SALT_PILLAR
-    - sed -i "s/latest/$BUILD_VERSION/" $SALT_PILLAR
-    - cat $SALT_PILLAR  
+    - | 
+      sed -i -e "s/%latest%/1.0.${CI_PIPELINE_IID}/g" $SALT_PILLAR
+      cat $SALT_PILLAR
   variables:
     CI_JOB_STAGE: stage
     SALT_TARGET: roles:hydra-publish-msk
@@ -220,12 +314,69 @@ deploy_production:
     SALT_URL: https://saltmaster-production.vnerd.com:8000
 
 slack:production:
-  stage: notify
+  stage: Production
   extends: .notify-all
-  when: on_success
-  needs: ['deploy_production']
+  rules: 
+    - if: $run_clean_up == "False" && $CI_PIPELINE_SOURCE != "schedule" && $CI_COMMIT_BRANCH == "master" && $CI_PIPELINE_SOURCE != "merge_request_event"
+      needs: ['deploy_production']
+      when: on_success 
+    - when: never
   before_script:
     - echo "Sending notification to slack"
   variables:
-    ENV: "Production Cluster"
-    SERVICE_NAME: "production-hydra-publish"
+    ENV: "Production"
+    SERVICE_NAME: "production-hydra"
+    SLACK_MESSAGE: |
+      *[[SERVICE_NAME]]* deployed to *[[ENV]]* Cluster 
+      Branch: ${CI_COMMIT_BRANCH}
+      Version: ${PUBLISH_BUILD_VERSION}
+      [[PIPELINE_LINK]]
+
+cleanup_dev_env:
+  image: harbor.vnerd.com/proxy/devth/helm:v${HELM_VERSION}
+  stage: cleanup
+  before_script:
+    - kubectl config set-cluster app-${CI_ENVIRONMENT_NAME%/*} --server=${HELM_K8S_CLUSTER_URL} --embed-certs --certificate-authority="$HELM_K8S_CLUSTER_CACERT"
+    - kubectl config set-credentials deploy --token=`echo ${HELM_DEPLOY_TOKEN} | base64 -d`
+    - kubectl config set-context deploy --cluster=app-${CI_ENVIRONMENT_NAME%/*} --namespace=${HELM_TARGET_NAMESPACE} --user=deploy
+    - kubectl config use-context deploy
+  script:
+    - |
+      #!/bin/bash
+      format='%Y-%m-%d %H:%M:%S'
+      kubectl get deployments  -n adapt-dvs-dev --selector=branch -o json | jq -c '.items[]' | sed 's/\\"/\\'\''/g' | while read i; do
+        helm_release_name=$(echo "$i" | jq -r ".metadata.labels.release")
+        created_at=$(echo "$i" | jq -r ".metadata.creationTimestamp" | sed 's/T/ /g' | sed 's/Z//g')
+        echo "================= Helm Details ================="
+        echo "Helm Release Name: $helm_release_name"
+        echo "Created At: $created_at"
+        echo "================================================"
+        resource_created_time=$(date -d"$created_at" '+%s')
+        current_time=$(date -u +"$format")
+        formatted_current_time=$(date -d"$current_time" '+%s')
+        echo "Current Time: $current_time"
+        echo "Resource Created Time: $created_at"
+        total_diff_seconds_in_hours=$(( $formatted_current_time - $resource_created_time ))
+        total_diff_seconds_in_hours=$(( $total_diff_seconds_in_hours / 3600 ))
+        if [ $total_diff_seconds_in_hours -ge 5 ]; then
+          echo "Release ($helm_release_name) will be deleted as it is running for $total_diff_seconds_in_hours hours"
+          helm uninstall ${helm_release_name}
+          echo "Done Unnistalling $helm_release_name"
+        else
+          echo "Ignoreing,As $helm_release_name has not completed 5 hours.."
+        fi
+      done
+  variables:
+    HELM_CHART_NAME: ps-service
+    HELM_DEPLOY_TOKEN: ${HELM_DEV_DEPLOY_TOKEN}
+    K8S_CLUSTER_NAME: app-eks.eplur-staging.us-west-2
+    HELM_K8S_CLUSTER_URL: https://6C29C0073BB19BEF220B9437E6962AF2.gr7.us-west-2.eks.amazonaws.com
+    BOUNDED_CONTEXT: adapt-dvs-dev
+    HELM_TARGET_NAMESPACE: ${BOUNDED_CONTEXT}
+    APPLICATION_ROLE: "dev-hydra-${CI_COMMIT_BRANCH}"
+    HELM_VALUES_FILE: helm/eks-dev-values.yml
+    SERVICE_NAME: "${ENV}-hydra-${CI_COMMIT_BRANCH}"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"  && $run_clean_up == "True"
+      when: always
+    - when: never
