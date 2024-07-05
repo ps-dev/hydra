@@ -3,6 +3,10 @@ image:
   pullPolicy: Always
   tag: '%IMAGE_TAG%'
 
+commonLabels: 
+  branch: %BRANCH_NAME%
+  deployed_by: %DEPLOYED_BY%
+
 deployment:
   apiVersion: "apps/v1"
   updateStrategy:
@@ -27,10 +31,10 @@ ingress:
   annotations: {}
   labels: {}
   hosts:
-    - hydra-publish-dev.eplur-staging.vnerd.com
+    - hydra-publish-dev-%BRANCH_NAME%.eplur-staging.vnerd.com
   tls:
     - hosts:
-        - hydra-publish-dev.eplur-staging.vnerd.com
+        - hydra-publish-dev-%BRANCH_NAME%.eplur-staging.vnerd.com
   path: /
   pathType: Prefix
 
