@@ -281,7 +281,7 @@ object SchemaRegistry {
             case _ => true // Retry for all other exceptions
           },
           policy = retryPolicy,
-          onError = onFailure("getAllVersions", subject)
+          onError = onFailure("getVersion", subject)
         )
 
       override def getAllVersions(subject: String): F[List[SchemaId]] =
