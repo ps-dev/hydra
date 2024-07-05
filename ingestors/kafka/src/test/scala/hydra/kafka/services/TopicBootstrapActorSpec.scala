@@ -18,7 +18,7 @@ import hydra.kafka.model.TopicMetadata
 import hydra.kafka.producer.AvroRecord
 import hydra.kafka.services.StreamsManagerActor.{GetMetadata, GetMetadataResponse}
 import hydra.kafka.services.TopicBootstrapActor._
-import net.manub.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig, KafkaUnavailableException}
+import io.github.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
 import org.apache.avro.Schema
 import org.apache.kafka.common.serialization.StringSerializer
 import org.joda.time.DateTime
@@ -49,7 +49,7 @@ class TopicBootstrapActorSpec
 
   implicit val embeddedKafkaConfig = EmbeddedKafkaConfig(
     kafkaPort = 8012,
-    zooKeeperPort = 3111,
+    zooKeeperPort = 3241,
     customBrokerProperties = Map("auto.create.topics.enable" -> "false")
   )
 

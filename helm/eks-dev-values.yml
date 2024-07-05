@@ -16,7 +16,7 @@ replicas: 2
 #velero.io/exclude-from-backup" = true 
 service:
   type: ClusterIP
-  port: 8080
+  port: 8088
   annotations: {}
   labels: {}
 
@@ -37,25 +37,25 @@ ingress:
 
 resources:
   limits:
-    memory: 6Gi
+    memory: 7Gi
   requests:
     cpu: 250m
-    memory: 1Gi
+    memory: 2Gi
 
 tolerations: []
 
 nodeSelector: {}
 
 config:
-  LOG_DIR: /var/log/hydra/
-  LOG_LEVEL: INFO
-  HYDRA_KAFKA_PRODUCER_BOOTSTRAP_SERVERS: b-1.isdvsdevblueuswest2.8xkirx.c14.kafka.us-west-2.amazonaws.com:9098,b-3.isdvsdevblueuswest2.8xkirx.c14.kafka.us-west-2.amazonaws.com:9098,b-2.isdvsdevblueuswest2.8xkirx.c14.kafka.us-west-2.amazonaws.com:9098
+  HYDRA_KAFKA_PRODUCER_BOOTSTRAP_SERVERS: b-3.isdvsdevblueuswest2.8xkirx.c14.kafka.us-west-2.amazonaws.com:9092,b-2.isdvsdevblueuswest2.8xkirx.c14.kafka.us-west-2.amazonaws.com:9092,b-1.isdvsdevblueuswest2.8xkirx.c14.kafka.us-west-2.amazonaws.com:9092
+  HYDRA_KAFKA_SECURITY_PROTOCOL: 'PLAINTEXT'
+  HYDRA_MIN_INSYNC_REPLICAS: 1
+  HYDRA_REPLICATION_FACTOR: 1
   HYDRA_SCHEMA_REGISTRY_URL: https://dvs-dev-schema-registry.eplur-staging.vnerd.com:8081
   HYDRA_V2_METADATA_CONTACT: '#dev-data-platform'
-  HYDRA_REPLICATION_FACTOR: 1
-  HYDRA_V2_METADATA_CONSUMER_GROUP: 'v2MetadataConsumer'
+  HYDRA_V2_METADATA_CONSUMER_GROUP: 'dev-cluster-v2MetadataConsumer'
   HYDRA_V2_CREATE_TOPICS_ENABLED: 'true'
   HYDRA_V2_METADATA_CREATE_ON_STARTUP: 'true'
-  HYDRA_MIN_INSYNC_REPLICAS: 1
-
+  LOG_DIR: /var/log/hydra/
+  LOG_LEVEL: INFO
 

@@ -50,7 +50,7 @@ class BootstrapEndpointSpec
 
   implicit val embeddedKafkaConfig = EmbeddedKafkaConfig(
     kafkaPort = 8012,
-    zooKeeperPort = 3111,
+    zooKeeperPort = 3011,
     customBrokerProperties = Map("auto.create.topics.enable" -> "false")
   )
 
