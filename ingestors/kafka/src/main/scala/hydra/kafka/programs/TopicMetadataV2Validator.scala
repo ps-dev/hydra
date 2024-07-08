@@ -9,6 +9,7 @@ import hydra.kafka.model.ContactMethod.Slack
 import hydra.kafka.model.DataClassification._
 import hydra.kafka.model.TopicMetadataV2Request.Subject
 import hydra.kafka.model._
+import hydra.kafka.util.ValidationUtils
 
 class TopicMetadataV2Validator[F[_] : Sync](metadataAlgebra: MetadataAlgebra[F], kafkaAdmin: KafkaAdminAlgebra[F]) extends Validator {
 
@@ -76,7 +77,7 @@ class TopicMetadataV2Validator[F[_] : Sync](metadataAlgebra: MetadataAlgebra[F],
       case MetadataAdditionalValidation.replacementTopics => valid
       case MetadataAdditionalValidation.contact if maybeSlackChannel.isDefined =>
         val slackChannel = maybeSlackChannel.get
-        val slackChannelValidation = slackChannel.matches("""^#[a-z][a-z_-]{0,78}$""")
+        val slackChannelValidation = ValidationUtils.isValidSlackChannel(slackChannel)
         validate(slackChannelValidation, TopicMetadataError.InvalidContactProvided(slackChannel))
     }
     resultOf(validations.pure)

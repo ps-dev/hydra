@@ -4,8 +4,7 @@ import hydra.common.validation.{AdditionalValidation, AdditionalValidationUtil, 
 import hydra.core.marshallers.{GenericSchema, TopicMetadataRequest}
 import hydra.kafka.model.TopicMetadata
 import hydra.kafka.programs.TopicMetadataError
-import hydra.kafka.util.{KafkaUtils, MetadataUtils}
-import hydra.kafka.util.MetadataUtils
+import hydra.kafka.util.{KafkaUtils, MetadataUtils, ValidationUtils}
 
 import scala.util.{Failure, Success, Try}
 
@@ -70,7 +69,7 @@ object TopicMetadataValidator {
     }
 
   private def validContact(contactField: String): ValidationResponse = {
-    if (contactField.matches("""^#[a-z][a-z_-]{0,78}$""")) {
+    if (ValidationUtils.isValidSlackChannel(contactField)) {
       Valid
     } else {
       Invalid(InvalidContactProvided)
