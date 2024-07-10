@@ -70,3 +70,8 @@ build.properties
 #ensime http://ensime.github.io/
 .ensime
 .ensime_cache
+
+.bsp
+
+# ignore temp files and folders
+__temp*
