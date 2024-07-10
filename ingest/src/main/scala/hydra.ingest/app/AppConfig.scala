@@ -19,7 +19,8 @@ object AppConfig {
       fullUrl: String,
       maxCacheSize: Int,
       schemaRegistryClientRetriesConfig: Int,
-      schemaRegistryClientRetrieDelaysConfig: FiniteDuration
+      schemaRegistryClientRetrieDelaysConfig: FiniteDuration,
+      useExponentialBackoff: Boolean
       )
 
   final case class SchemaRegistryRedisConfig(
@@ -39,7 +40,8 @@ object AppConfig {
         .default("http://localhost:8081"),
       env("HYDRA_MAX_SCHEMAS_PER_SUBJECT").as[Int].default(1000),
       env("HYDRA_SCHEMA_REGISTRY_RETRIES").as[Int].default(3),
-      env("HYDRA_SCHEMA_REGISTRY_RETRIES_DELAY").as[FiniteDuration].default(500.milliseconds)
+      env("HYDRA_SCHEMA_REGISTRY_RETRIES_DELAY").as[FiniteDuration].default(500.milliseconds),
+      env("HYDRA_SCHEMA_REGISTRY_USE_EXPONENTIAL_BACKOFF").as[Boolean].default(false)
       ).parMapN(SchemaRegistryConfig)
 
   private val schemaRegistryRedisConfig: ConfigValue[SchemaRegistryRedisConfig] = (

@@ -157,10 +157,11 @@ object SchemaRegistry {
                                           maxCacheSize: Int,
                                           securityConfig: SchemaRegistrySecurityConfig,
                                           schemaRegistryClientRetries: Int,
-                                          schemaRegistryClientRetriesDelay: FiniteDuration
+                                          schemaRegistryClientRetriesDelay: FiniteDuration,
+                                          useExponentialBackoff: Boolean
                                         ): F[SchemaRegistry[F]] = Sync[F].delay {
     getFromSchemaRegistryClient(new CachedSchemaRegistryClient(schemaRegistryBaseUrl, maxCacheSize,
-      securityConfig.toConfigMap.asJava), schemaRegistryClientRetries, schemaRegistryClientRetriesDelay)
+      securityConfig.toConfigMap.asJava), schemaRegistryClientRetries, schemaRegistryClientRetriesDelay, useExponentialBackoff)
   }
 
   // scalastyle:off parameter.number
@@ -174,7 +175,8 @@ object SchemaRegistry {
                                           schemaCacheTtl: Int,
                                           versionCacheTtl: Int,
                                           schemaRegistryClientRetries: Int,
-                                          schemaRegistryClientRetriesDelay: FiniteDuration
+                                          schemaRegistryClientRetriesDelay: FiniteDuration,
+                                          useExponentialBackoff: Boolean
                                         ): F[SchemaRegistry[F]] = Sync[F].delay {
     getFromSchemaRegistryClient(
       new RedisSchemaRegistryClient(
@@ -186,25 +188,31 @@ object SchemaRegistry {
         ssl
       ),
       schemaRegistryClientRetries,
-      schemaRegistryClientRetriesDelay
+      schemaRegistryClientRetriesDelay,
+      useExponentialBackoff
     )
   }
 
   def test[F[_] : Sync : Logger : Sleep]: F[SchemaRegistry[F]] = Sync[F].delay {
-    getFromSchemaRegistryClient(new MockSchemaRegistryClient, schemaRegistryClientRetries = 0, schemaRegistryClientRetriesDelay = 1.milliseconds)
+    getFromSchemaRegistryClient(new MockSchemaRegistryClient, schemaRegistryClientRetries = 0, schemaRegistryClientRetriesDelay = 1.milliseconds, useExponentialBackoff = false)
   }
 
   def test[F[_] : Sync : Logger : Sleep](mockedClient: SchemaRegistryClient, schemaRegistryClientRetries: Int = 3,
                                          schemaRegistryClientRetriesDelay: FiniteDuration = 500.milliseconds): F[SchemaRegistry[F]] = Sync[F].delay {
-    getFromSchemaRegistryClient(mockedClient, schemaRegistryClientRetries, schemaRegistryClientRetriesDelay)
+    getFromSchemaRegistryClient(mockedClient, schemaRegistryClientRetries, schemaRegistryClientRetriesDelay, useExponentialBackoff = false)
   }
 
   // scalastyle:off method.length
   private def getFromSchemaRegistryClient[F[_] : Sync : Logger : Sleep](schemaRegistryClient: SchemaRegistryClient,
                                                                         schemaRegistryClientRetries: Int,
-                                                                        schemaRegistryClientRetriesDelay: FiniteDuration): SchemaRegistry[F] =
+                                                                        schemaRegistryClientRetriesDelay: FiniteDuration,
+                                                                        useExponentialBackoff: Boolean): SchemaRegistry[F] =
     new SchemaRegistry[F] {
-      val retryPolicy = limitRetries(schemaRegistryClientRetries) |+| exponentialBackoff[F](schemaRegistryClientRetriesDelay)
+      val retryPolicy = if (useExponentialBackoff) {
+        limitRetries(schemaRegistryClientRetries) |+| exponentialBackoff[F](schemaRegistryClientRetriesDelay)
+      } else {
+        limitRetries(schemaRegistryClientRetries) |+| constantDelay[F](schemaRegistryClientRetriesDelay)
+      }
 
       private implicit class SchemaOps(sch: Schema) {
         def fields: List[Schema.Field] = fieldsEval("topLevel", box = false).value

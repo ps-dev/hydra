@@ -38,7 +38,8 @@ object Algebras {
           config.schemaRegistryRedisConfig.schemaCacheTtl,
           config.schemaRegistryRedisConfig.versionCacheTtl,
           config.createTopicConfig.schemaRegistryConfig.schemaRegistryClientRetriesConfig,
-          config.createTopicConfig.schemaRegistryConfig.schemaRegistryClientRetrieDelaysConfig
+          config.createTopicConfig.schemaRegistryConfig.schemaRegistryClientRetrieDelaysConfig,
+          config.createTopicConfig.schemaRegistryConfig.useExponentialBackoff
         )
       } else {
         SchemaRegistry.live[F](
@@ -46,7 +47,8 @@ object Algebras {
           config.createTopicConfig.schemaRegistryConfig.maxCacheSize,
           config.schemaRegistrySecurityConfig,
           config.createTopicConfig.schemaRegistryConfig.schemaRegistryClientRetriesConfig,
-          config.createTopicConfig.schemaRegistryConfig.schemaRegistryClientRetrieDelaysConfig
+          config.createTopicConfig.schemaRegistryConfig.schemaRegistryClientRetrieDelaysConfig,
+          config.createTopicConfig.schemaRegistryConfig.useExponentialBackoff
         )
       }
       kafkaAdmin <- KafkaAdminAlgebra.live[F](config.createTopicConfig.bootstrapServers, kafkaClientSecurityConfig = config.kafkaClientSecurityConfig)
