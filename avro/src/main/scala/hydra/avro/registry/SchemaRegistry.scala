@@ -66,7 +66,7 @@ trait SchemaRegistry[F[_]] {
    * @param schema  - avro Schema which is expected to be in Schema Registry
    * @return SchemaVersion
    */
-  def getVersion(subject: String, schema: Schema): F[SchemaVersion]
+  def getVersion(subject: String, schema: Schema, useExponentialBackoffRetryPolicy: Boolean = false): F[SchemaVersion]
 
   /**
    * Retrieves all SchemaVersion(s) for a given subject.
@@ -74,7 +74,7 @@ trait SchemaRegistry[F[_]] {
    * @param subject - subject name for the schema found in SchemaRegistry including the suffix (-key | -value)
    * @return List[SchemaVersion] or List.empty if Subject Not Found
    */
-  def getAllVersions(subject: String): F[List[SchemaVersion]]
+  def getAllVersions(subject: String, useExponentialBackoffRetryPolicy: Boolean = false): F[List[SchemaVersion]]
 
   /**
    * Retrieves all subjects found in the SchemaRegistry
@@ -157,11 +157,10 @@ object SchemaRegistry {
                                           maxCacheSize: Int,
                                           securityConfig: SchemaRegistrySecurityConfig,
                                           schemaRegistryClientRetries: Int,
-                                          schemaRegistryClientRetriesDelay: FiniteDuration,
-                                          useExponentialBackoff: Boolean
+                                          schemaRegistryClientRetriesDelay: FiniteDuration
                                         ): F[SchemaRegistry[F]] = Sync[F].delay {
     getFromSchemaRegistryClient(new CachedSchemaRegistryClient(schemaRegistryBaseUrl, maxCacheSize,
-      securityConfig.toConfigMap.asJava), schemaRegistryClientRetries, schemaRegistryClientRetriesDelay, useExponentialBackoff)
+      securityConfig.toConfigMap.asJava), schemaRegistryClientRetries, schemaRegistryClientRetriesDelay)
   }
 
   // scalastyle:off parameter.number
@@ -175,8 +174,7 @@ object SchemaRegistry {
                                           schemaCacheTtl: Int,
                                           versionCacheTtl: Int,
                                           schemaRegistryClientRetries: Int,
-                                          schemaRegistryClientRetriesDelay: FiniteDuration,
-                                          useExponentialBackoff: Boolean
+                                          schemaRegistryClientRetriesDelay: FiniteDuration
                                         ): F[SchemaRegistry[F]] = Sync[F].delay {
     getFromSchemaRegistryClient(
       new RedisSchemaRegistryClient(
@@ -188,8 +186,7 @@ object SchemaRegistry {
         ssl
       ),
       schemaRegistryClientRetries,
-      schemaRegistryClientRetriesDelay,
-      useExponentialBackoff
+      schemaRegistryClientRetriesDelay
     )
   }
 
@@ -205,14 +202,12 @@ object SchemaRegistry {
   // scalastyle:off method.length
   private def getFromSchemaRegistryClient[F[_] : Sync : Logger : Sleep](schemaRegistryClient: SchemaRegistryClient,
                                                                         schemaRegistryClientRetries: Int,
-                                                                        schemaRegistryClientRetriesDelay: FiniteDuration,
-                                                                        useExponentialBackoff: Boolean = false): SchemaRegistry[F] =
+                                                                        schemaRegistryClientRetriesDelay: FiniteDuration): SchemaRegistry[F] =
     new SchemaRegistry[F] {
-      val retryPolicy = if (useExponentialBackoff) {
-        limitRetries(schemaRegistryClientRetries) |+| exponentialBackoff[F](schemaRegistryClientRetriesDelay)
-      } else {
-        limitRetries(schemaRegistryClientRetries) |+| constantDelay[F](schemaRegistryClientRetriesDelay)
-      }
+      lazy val constantDelayRetryPolicy = limitRetries(schemaRegistryClientRetries) |+| constantDelay[F](schemaRegistryClientRetriesDelay)
+
+      lazy val exponentialBackOffRetryPolicy = limitRetries(schemaRegistryClientRetries) |+| exponentialBackoff[F](schemaRegistryClientRetriesDelay)
+
 
       private implicit class SchemaOps(sch: Schema) {
         def fields: List[Schema.Field] = fieldsEval("topLevel", box = false).value
@@ -300,8 +295,10 @@ object SchemaRegistry {
 
       override def getVersion(
                                subject: String,
-                               schema: Schema
-                             ): F[SchemaVersion] =
+                               schema: Schema,
+                               useExponentialBackoffRetryPolicy: Boolean = false
+                             ): F[SchemaVersion] = {
+        val retryPolicy = if(useExponentialBackoffRetryPolicy) exponentialBackOffRetryPolicy else constantDelayRetryPolicy
         Sync[F].delay {
           schemaRegistryClient.getVersion(subject, schema)
         }.retryingOnSomeErrors(
@@ -312,12 +309,15 @@ object SchemaRegistry {
           policy = retryPolicy,
           onError = onFailure("getVersion", subject)
         )
+      }
 
-      override def getAllVersions(subject: String): F[List[SchemaId]] =
+      override def getAllVersions(subject: String, useExponentialBackoffRetryPolicy: Boolean = false): F[List[SchemaId]] = {
+        val retryPolicy = if(useExponentialBackoffRetryPolicy) exponentialBackOffRetryPolicy else constantDelayRetryPolicy
         Sync[F].fromTry(Try(schemaRegistryClient.getAllVersions(subject)))
           .map(_.asScala.toList.map(_.toInt)).recover {
           case r: RestClientException if r.getErrorCode == 40401 => List.empty
         }.retryingOnAllErrors(retryPolicy, onFailure("getAllVersions", subject))
+      }
 
       private def onFailure(resourceTried: String, subject: String): (Throwable, RetryDetails) => F[Unit] =
         (error, retryDetails) =>

@@ -44,12 +44,12 @@ final class CreateTopicProgram[F[_]: Bracket[*[_], Throwable]: Sleep: Logger] pr
     val suffixedSubject = subject.value + (if (isKey) "-key" else "-value")
     val registerSchema: F[Option[SchemaVersion]] = {
       schemaRegistry
-        .getVersion(suffixedSubject, schema)
+        .getVersion(suffixedSubject, schema, useExponentialBackoffRetryPolicy = true)
         .attempt
         .map(_.toOption)
         .flatMap { previousSchemaVersion =>
           schemaRegistry.registerSchema(suffixedSubject, schema) *>
-            schemaRegistry.getVersion(suffixedSubject, schema).map {
+            schemaRegistry.getVersion(suffixedSubject, schema, useExponentialBackoffRetryPolicy = true).map {
               newSchemaVersion =>
                 if (previousSchemaVersion.contains(newSchemaVersion)) {
                   None
