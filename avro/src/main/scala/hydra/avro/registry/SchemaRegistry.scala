@@ -64,6 +64,8 @@ trait SchemaRegistry[F[_]] {
    *
    * @param subject - subject name for the schema found in SchemaRegistry including the suffix (-key | -value)
    * @param schema  - avro Schema which is expected to be in Schema Registry
+   * @param useExponentialBackoffRetryPolicy - flag indicating whether to use exponential backoff retry policy
+   *                                          (default: false, meaning constant delay retry policy is used)
    * @return SchemaVersion
    */
   def getVersion(subject: String, schema: Schema, useExponentialBackoffRetryPolicy: Boolean = false): F[SchemaVersion]
@@ -72,6 +74,8 @@ trait SchemaRegistry[F[_]] {
    * Retrieves all SchemaVersion(s) for a given subject.
    *
    * @param subject - subject name for the schema found in SchemaRegistry including the suffix (-key | -value)
+   * @param useExponentialBackoffRetryPolicy - flag indicating whether to use exponential backoff retry policy
+   *                                          (default: false, meaning constant delay retry policy is used)
    * @return List[SchemaVersion] or List.empty if Subject Not Found
    */
   def getAllVersions(subject: String, useExponentialBackoffRetryPolicy: Boolean = false): F[List[SchemaVersion]]
