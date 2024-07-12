@@ -75,10 +75,10 @@ class CreateTopicProgramSpec extends AsyncFreeSpec with Matchers with IOSuite {
           override def deleteSchemaOfVersion(subject: String, version: SchemaVersion): IO[Unit] =
             ref.update(_.copy(deleteSchemaWasCalled = true))
 
-          override def getVersion(subject: String, schema: Schema, useExponentialBackoffRetryPolicy: Boolean = false): IO[SchemaVersion] =
+          override def getVersion(subject: String, schema: Schema, useExponentialBackoffRetryPolicy: Boolean): IO[SchemaVersion] =
             ref.get.map(testState => testState.numSchemasRegistered + 1)
 
-          override def getAllVersions(subject: String, useExponentialBackoffRetryPolicy: Boolean = false): IO[List[Int]] = IO.pure(List())
+          override def getAllVersions(subject: String, useExponentialBackoffRetryPolicy: Boolean): IO[List[Int]] = IO.pure(List())
           override def getAllSubjects: IO[List[String]] = IO.pure(List())
           override def getSchemaRegistryClient: IO[SchemaRegistryClient] =
             IO.raiseError(new Exception("Something horrible went wrong!"))
@@ -104,8 +104,8 @@ class CreateTopicProgramSpec extends AsyncFreeSpec with Matchers with IOSuite {
             ref.get.flatMap(n => ref.set(n + 1) *> IO.raiseError(new Exception("Something horrible went wrong!")))
 
           override def deleteSchemaOfVersion(subject: String, version: SchemaVersion): IO[Unit] = IO.unit
-          override def getVersion(subject: String, schema: Schema, useExponentialBackoffRetryPolicy: Boolean = false): IO[SchemaVersion] = IO.pure(1)
-          override def getAllVersions(subject: String, useExponentialBackoffRetryPolicy: Boolean = false): IO[List[Int]] = IO.pure(Nil)
+          override def getVersion(subject: String, schema: Schema, useExponentialBackoffRetryPolicy: Boolean): IO[SchemaVersion] = IO.pure(1)
+          override def getAllVersions(subject: String, useExponentialBackoffRetryPolicy: Boolean): IO[List[Int]] = IO.pure(Nil)
           override def getAllSubjects: IO[List[String]] = IO.pure(Nil)
           override def getSchemaRegistryClient: IO[SchemaRegistryClient] = IO.raiseError(new Exception("Something horrible went wrong!"))
           override def getLatestSchemaBySubject(subject: String): IO[Option[Schema]] = IO.pure(None)
@@ -135,8 +135,8 @@ class CreateTopicProgramSpec extends AsyncFreeSpec with Matchers with IOSuite {
           override def deleteSchemaOfVersion(subject: String, version: SchemaVersion): IO[Unit] =
             ref.update(ts => ts.copy(schemas = ts.schemas - subject))
 
-          override def getVersion(subject: String, schema: Schema, useExponentialBackoffRetryPolicy: Boolean = false): IO[SchemaVersion] = ref.get.map(_.schemas(subject))
-          override def getAllVersions(subject: String, useExponentialBackoffRetryPolicy: Boolean = false): IO[List[Int]] = IO.pure(Nil)
+          override def getVersion(subject: String, schema: Schema, useExponentialBackoffRetryPolicy: Boolean): IO[SchemaVersion] = ref.get.map(_.schemas(subject))
+          override def getAllVersions(subject: String, useExponentialBackoffRetryPolicy: Boolean): IO[List[Int]] = IO.pure(Nil)
           override def getAllSubjects: IO[List[String]] = IO.pure(Nil)
           override def getSchemaRegistryClient: IO[SchemaRegistryClient] = IO.raiseError(new Exception)
           override def getLatestSchemaBySubject(subject: String): IO[Option[Schema]] = IO.pure(None)
