@@ -268,9 +268,10 @@ final class BootstrapEndpointV2Spec
         ): IO[Unit] = err
         override def getVersion(
             subject: String,
-            schema: Schema
+            schema: Schema,
+            useExponentialBackoffRetryPolicy: Boolean
         ): IO[SchemaVersion] = err
-        override def getAllVersions(subject: String): IO[List[Int]] = err
+        override def getAllVersions(subject: String, useExponentialBackoffRetryPolicy: Boolean): IO[List[Int]] = err
         override def getAllSubjects: IO[List[String]] = err
 
         override def getSchemaRegistryClient: IO[SchemaRegistryClient] = err
