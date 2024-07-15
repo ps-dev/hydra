@@ -64,10 +64,10 @@ class TopicDeletionEndpointSpec extends Matchers with AnyWordSpecLike with Scala
       override def deleteSchemaOfVersion(subject: String,version: SchemaVersion): F[Unit] =
         underlying.deleteSchemaOfVersion(subject,version)
 
-      override def getVersion(subject: String,schema: Schema): F[SchemaVersion] =
+      override def getVersion(subject: String,schema: Schema, useExponentialBackoffRetryPolicy: Boolean): F[SchemaVersion] =
         underlying.getVersion(subject,schema)
 
-      override def getAllVersions(subject: String): F[List[SchemaId]] =
+      override def getAllVersions(subject: String, useExponentialBackoffRetryPolicy: Boolean): F[List[SchemaId]] =
         underlying.getAllVersions(subject)
 
       override def getAllSubjects: F[List[String]] =
