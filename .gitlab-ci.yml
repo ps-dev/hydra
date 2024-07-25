@@ -1,6 +1,5 @@
 include:
   - project: 'pluralsight/experience/gitlab-helpers'
-    ref: PDP1-1028
     file: '/salt-deploy/helper.yml'
   - project: 'pluralsight/experience/gitlab-helpers'
     file: '/helm-deploy/helper.yml'
@@ -178,7 +177,6 @@ deploy_staging:
   stage: deploy_staging
   extends: .saltDeploy
   when: manual
-  image: harbor.vnerd.com/library/hydra-build-tools:a7f27b1
   environment:
       name: staging
   before_script:
