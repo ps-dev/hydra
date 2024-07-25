@@ -64,10 +64,7 @@ build:
   retry: 2
   before_script:
     - |
-      echo -e "realm=JitPack\n
-      host=jitpack.io\n
-      user=${GITLAB_JITPACK_TOKEN}\n
-      password=." > $HOME/.sbt/.credentials file
+      echo -e "realm=JitPack\nhost=jitpack.io\nuser=${GITLAB_JITPACK_TOKEN}\npassword=." >> $HOME/.sbt/.credentials file
   script:
     - sbt clean compile test
 
