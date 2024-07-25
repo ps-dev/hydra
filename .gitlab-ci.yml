@@ -62,10 +62,6 @@ build:
   stage: build
   cache: []
   retry: 2
-  before_script:
-    - |
-      mkdir -p ${CI_PROJECT_DIR}/.sbt/
-      echo -e "realm=JitPack\nhost=jitpack.io\nuser=${GITLAB_JITPACK_TOKEN}\npassword=." >> ${CI_PROJECT_DIR}/.sbt/.credentials
   script:
     - sbt clean compile test
 
