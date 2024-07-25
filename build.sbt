@@ -6,6 +6,7 @@ val buildNumber =
   scala.util.Properties.envOrNone("version").map(v => "." + v).getOrElse("")
 val hydraVersion = "0.11.3" + buildNumber
 val jvmMaxMemoryFlag = sys.env.getOrElse("MAX_JVM_MEMORY_FLAG", "-Xmx2g")
+val buildProjectDir = sys.env.getOrElse("CI_PROJECT_DIR", "")
 
 lazy val defaultSettings = Seq(
   organization := "pluralsight",
@@ -56,7 +57,7 @@ lazy val defaultSettings = Seq(
   resolvers += "Confluent Maven Repo" at "https://packages.confluent.io/maven/",
   resolvers += "jitpack" at "https://jitpack.io",
   ivyLoggingLevel in ThisBuild := UpdateLogging.Quiet,
-  credentials += Credentials(Path.userHome / ".sbt" / ".credentials"),
+  credentials += Credentials(buildProjectDir / ".sbt" / ".credentials"),
   parallelExecution in sbt.Test := false,
   javaOptions in Universal ++= Seq(
     "-Dorg.aspectj.tracing.factory=default",

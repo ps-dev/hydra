@@ -64,8 +64,7 @@ build:
   retry: 2
   before_script:
     - |
-      touch $HOME/.sbt/.credentials
-      echo -e "realm=JitPack\nhost=jitpack.io\nuser=${GITLAB_JITPACK_TOKEN}\npassword=." >> $HOME/.sbt/.credentials
+      echo -e "realm=JitPack\nhost=jitpack.io\nuser=${GITLAB_JITPACK_TOKEN}\npassword=." >> ${CI_PROJECT_DIR}/.sbt/.credentials
   script:
     - sbt clean compile test
 
