@@ -56,11 +56,13 @@ lazy val defaultSettings = Seq(
   resolvers += "Confluent Maven Repo" at "https://packages.confluent.io/maven/",
   resolvers += "jitpack" at "https://jitpack.io",
   ivyLoggingLevel in ThisBuild := UpdateLogging.Quiet,
+  credentials += Credentials(Path.userHome / ".sbt" / ".credentials"),
   parallelExecution in sbt.Test := false,
   javaOptions in Universal ++= Seq(
     "-Dorg.aspectj.tracing.factory=default",
     "-J" + jvmMaxMemoryFlag
   )
+
 )
 
 lazy val restartSettings = Seq(
