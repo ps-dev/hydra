@@ -7,7 +7,7 @@ include:
     ref: main
     file: 'snyk-check.yml'
 
-image: openjdk:8
+image: harbor.vnerd.com/library/hydra-build-tools:latest
 
 variables:
   ARTIFACT_NAME: hydra-publish
