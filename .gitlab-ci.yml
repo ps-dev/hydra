@@ -178,6 +178,7 @@ deploy_staging:
   stage: deploy_staging
   extends: .saltDeploy
   when: manual
+  image: harbor.vnerd.com/library/hydra-build-tools:a7f27b1
   environment:
       name: staging
   before_script:
