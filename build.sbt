@@ -61,6 +61,7 @@ lazy val defaultSettings = Seq(
     "-Dorg.aspectj.tracing.factory=default",
     "-J" + jvmMaxMemoryFlag
   )
+
 )
 
 lazy val restartSettings = Seq(
