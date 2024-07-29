@@ -7,7 +7,7 @@ include:
     ref: main
     file: 'snyk-check.yml'
 
-image: openjdk:8
+image: harbor.vnerd.com/library/hydra-build-tools:latest
 
 variables:
   ARTIFACT_NAME: hydra-publish
@@ -191,7 +191,7 @@ deploy_staging:
     SALT_USERNAME: tcity-data-platform
     SALT_KWARGS: 'failhard=true'
     SALT_PILLAR: $CI_PROJECT_DIR/pillar_overrides.yaml
-    SALT_URL: https://saltmaster-stage.vnerd.com:8000
+    SALT_URL: ${SALT_URL_STAGING}
 
 slack:staging:
   stage: notify
@@ -222,7 +222,7 @@ deploy_production:
     SALT_USERNAME: tcity-data-platform
     SALT_KWARGS: 'failhard=true'
     SALT_PILLAR: $CI_PROJECT_DIR/pillar_overrides.yaml
-    SALT_URL: https://saltmaster-production.vnerd.com:8000
+    SALT_URL: ${SALT_URL_PROD}
 
 slack:production:
   stage: notify
