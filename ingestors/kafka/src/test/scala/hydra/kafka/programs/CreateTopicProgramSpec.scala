@@ -15,7 +15,7 @@ import hydra.kafka.algebras.KafkaClientAlgebra.{ConsumerGroup, Offset, Partition
 import hydra.kafka.algebras.MetadataAlgebra.TopicMetadataContainer
 import hydra.kafka.algebras.{KafkaAdminAlgebra, KafkaClientAlgebra, MetadataAlgebra, TestMetadataAlgebra}
 import hydra.common.validation.AdditionalValidation.allValidations
-import hydra.kafka.model.ContactMethod.Email
+import hydra.kafka.model.ContactMethod.{Email, Slack}
 import hydra.kafka.model.TopicMetadataV2Request.Subject
 import hydra.kafka.model._
 import hydra.kafka.util.KafkaUtils.TopicDetails
@@ -29,7 +29,9 @@ import retry.{RetryPolicies, RetryPolicy}
 import eu.timepit.refined._
 import hydra.common.NotificationsTestSuite
 import hydra.common.alerting.sender.InternalNotificationSender
-import hydra.common.validation.AdditionalValidation
+import hydra.common.validation.MetadataAdditionalValidation.replacementTopics
+import hydra.common.validation.SchemaAdditionalValidation.{defaultInRequiredField, timestampMillis}
+import hydra.common.validation.{AdditionalValidation, MetadataAdditionalValidation}
 import hydra.common.validation.ValidationError.ValidationCombinedErrors
 import hydra.kafka.IOSuite
 import hydra.kafka.algebras.RetryableFs2Stream.RetryPolicy.Once
@@ -2408,6 +2410,62 @@ class CreateTopicProgramSpec extends AsyncFreeSpec with Matchers with IOSuite {
       val request = topicMetadataRequest.copy(previousTopics = topics)
 
       testSuccess(request, previousTopics = topics, createReplacementAndPreviousTopics = true)
+    }
+
+    "contact is added in additionalValidations for a new topic" in {
+      for {
+        publishTo             <- Ref[IO].of(Map.empty[String, (GenericRecord, Option[GenericRecord], Option[Headers])])
+        consumeFrom           <- Ref[IO].of(Map.empty[Subject, TopicMetadataContainer])
+        metadata              <- IO(new TestMetadataAlgebraWithPublishTo(consumeFrom))
+        ts                    <- initTestServices(new TestKafkaClientAlgebraWithPublishTo(publishTo).some, metadata.some)
+        _                     <- ts.program.createTopic(subject, topicMetadataRequest, topicDetails, withRequiredFields = true)
+        published             <- publishTo.get
+        expectedTopicMetadata <- TopicMetadataV2.encode[IO](
+          topicMetadataKey,
+          Some(topicMetadataValue.copy(additionalValidations = allValidations))) // contact validation is added in additionalValidations
+      } yield {
+        published shouldBe Map(metadataTopic -> (expectedTopicMetadata._1, expectedTopicMetadata._2, None))
+      }
+    }
+
+    "contact is NOT added in additionalValidations if an existing topic does not have it" in {
+      for {
+        publishTo             <- Ref[IO].of(Map.empty[String, (GenericRecord, Option[GenericRecord], Option[Headers])])
+        consumeFrom           <- Ref[IO].of(Map.empty[Subject, TopicMetadataContainer])
+        metadata              <- IO(new TestMetadataAlgebraWithPublishTo(consumeFrom))
+        _                     <- metadata.addToMetadata(subject, topicMetadataRequest.copy(
+          additionalValidations = allValidations.map(_.filterNot(_ == MetadataAdditionalValidation.contact))))
+        ts                    <- initTestServices(new TestKafkaClientAlgebraWithPublishTo(publishTo).some, metadata.some)
+        _                     <- ts.program.createTopic(subject, topicMetadataRequest, topicDetails, withRequiredFields = true)
+        published             <- publishTo.get
+        expectedTopicMetadata <- TopicMetadataV2.encode[IO](
+          topicMetadataKey,
+          Some(topicMetadataValue.copy(additionalValidations = allValidations.map(_.filterNot(_ == MetadataAdditionalValidation.contact))))
+        ) // contact validation is not added in additionalValidations
+      } yield {
+        published shouldBe Map(metadataTopic -> (expectedTopicMetadata._1, expectedTopicMetadata._2, None))
+      }
+    }
+
+    "accept request if the slackChannel in the contact is not valid for an existing topic" in {
+      val slackChannel = "dev-data-platform"
+      for {
+        publishTo             <- Ref[IO].of(Map.empty[String, (GenericRecord, Option[GenericRecord], Option[Headers])])
+        consumeFrom           <- Ref[IO].of(Map.empty[Subject, TopicMetadataContainer])
+        metadata              <- IO(new TestMetadataAlgebraWithPublishTo(consumeFrom))
+        _                     <- metadata.addToMetadata(subject, topicMetadataRequest.copy(
+          additionalValidations = allValidations.map(_.filterNot(_ == MetadataAdditionalValidation.contact))))
+        ts                    <- initTestServices(new TestKafkaClientAlgebraWithPublishTo(publishTo).some, metadata.some)
+        _                     <- ts.program.createTopic(subject, topicMetadataRequest.copy(contact = NonEmptyList.of(Slack.create(slackChannel).get)),
+          topicDetails, withRequiredFields = true)
+      } yield succeed
+    }
+
+    "throw error if the slackChannel in the contact is not valid for a new topic" in {
+      val slackChannel = "dev-data-platform"
+      val updatedRequest = topicMetadataRequest.copy(contact = NonEmptyList.of(Slack.create(slackChannel).get))
+
+      testFailure(updatedRequest, TopicMetadataError.InvalidContactProvided(slackChannel))
     }
 
     def testSuccess(request: TopicMetadataV2Request,

@@ -6,6 +6,8 @@ import akka.NotUsed
 import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props}
 import akka.kafka.scaladsl.Consumer
 import akka.kafka.scaladsl.Consumer.Control
+
+import scala.jdk.CollectionConverters._
 import akka.kafka.{ConsumerSettings, Subscriptions}
 import akka.pattern.pipe
 import akka.stream.scaladsl.{Keep, RunnableGraph, Sink}
@@ -13,11 +15,12 @@ import com.typesafe.config.Config
 import hydra.common.config.ConfigSupport
 import hydra.common.config.ConfigSupport._
 import hydra.common.config.KafkaConfigUtils._
+import hydra.common.validation.{AdditionalValidation, MetadataAdditionalValidation, SchemaAdditionalValidation}
 import hydra.core.marshallers.HydraJsonSupport
 import hydra.kafka.model.TopicMetadata
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient
 import io.confluent.kafka.serializers.KafkaAvroDeserializer
-import org.apache.avro.generic.GenericRecord
+import org.apache.avro.generic.{GenericData, GenericRecord}
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.common.serialization.StringDeserializer
 import org.joda.time.format.ISODateTimeFormat
@@ -136,6 +139,17 @@ object StreamsManagerActor {
       None
     }
 
+  private def toAdditionalValidationList(record: GenericRecord): Option[List[AdditionalValidation]] =
+    toOptionList(record, "additionalValidationList").map { stringList =>
+      stringList.flatMap {
+        case "replacementTopics" => Some(MetadataAdditionalValidation.replacementTopics)
+        case "contact" => Some(MetadataAdditionalValidation.contact)
+        case "defaultInRequiredField" => Some(SchemaAdditionalValidation.defaultInRequiredField)
+        case "timestampMillis" => Some(SchemaAdditionalValidation.timestampMillis)
+        case _ => None
+      }
+    }
+
   private[services] def createMetadataStream[K, V](
       config: Config,
       kafkaClientSecurityConfig: KafkaClientSecurityConfig,
@@ -182,7 +196,7 @@ object StreamsManagerActor {
             UUID.fromString(record.get("id").toString),
             formatter.parseDateTime(record.get("createdDate").toString),
             Try(Option(record.get("notificationUrl"))).toOption.flatten.map(_.toString),
-            None // Never pick additionalValidations from the request.
+            toAdditionalValidationList(record)
           )
         }
         TopicMetadataMessage(msg.key, topicMetadata)

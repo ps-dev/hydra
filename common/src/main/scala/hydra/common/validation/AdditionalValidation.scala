@@ -2,7 +2,6 @@ package hydra.common.validation
 
 import enumeratum.{Enum, EnumEntry}
 import vulcan.AvroNamespace
-
 import scala.collection.immutable
 
 @AvroNamespace("hydra.kafka.model")
@@ -11,9 +10,11 @@ sealed trait MetadataAdditionalValidation extends AdditionalValidation
 sealed trait SchemaAdditionalValidation extends AdditionalValidation
 
 // NOTE: Please note that any case object added here once must be retained throughout for schema to evolve.
+// scalastyle:off object.name
 object MetadataAdditionalValidation extends Enum[MetadataAdditionalValidation] {
 
   case object replacementTopics extends MetadataAdditionalValidation
+  case object contact extends MetadataAdditionalValidation
 
   override val values: immutable.IndexedSeq[MetadataAdditionalValidation] = findValues
 }
@@ -26,6 +27,7 @@ object SchemaAdditionalValidation extends Enum[SchemaAdditionalValidation] {
 
   override val values: immutable.IndexedSeq[SchemaAdditionalValidation] = findValues
 }
+// scalastyle:on object.name
 
 object AdditionalValidation {
 

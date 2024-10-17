@@ -1,8 +1,10 @@
 package hydra.kafka.services
 
+import hydra.common.validation.{AdditionalValidation, AdditionalValidationUtil, MetadataAdditionalValidation}
 import hydra.core.marshallers.{GenericSchema, TopicMetadataRequest}
+import hydra.kafka.model.TopicMetadata
 import hydra.kafka.programs.TopicMetadataError
-import hydra.kafka.util.KafkaUtils
+import hydra.kafka.util.{KafkaUtils, MetadataUtils, ValidationUtils}
 
 import scala.util.{Failure, Success, Try}
 
@@ -18,7 +20,7 @@ object TopicMetadataValidator {
       validFormat
     )
 
-  def validate(request: TopicMetadataRequest, schema: GenericSchema, kafkaUtils: KafkaUtils): Try[ValidationResponse] =
+  def validate(request: TopicMetadataRequest, schema: GenericSchema, additionalValidations:Option[List[AdditionalValidation]], kafkaUtils: KafkaUtils): Try[ValidationResponse] = {
     mergeValidationResponses(
       List(
         validateSubject(Option(schema)),
@@ -26,9 +28,11 @@ object TopicMetadataValidator {
         validateTopicsExist(request.previousTopics, kafkaUtils),
         validateDeprecatedTopicHasReplacementTopic(request.deprecated.contains(true), request.replacementTopics, schema.subject),
         validateNonDepSelfRefReplacementTopics(request.deprecated.contains(true), request.replacementTopics, schema.subject),
-        validatePreviousTopicsCannotPointItself(request.previousTopics, schema.subject)
+        validatePreviousTopicsCannotPointItself(request.previousTopics, schema.subject),
+        validateAdditional(request, additionalValidations)
       )
     )
+  }
 
   def validateSubject(gOpt: Option[GenericSchema]): Try[ValidationResponse] = {
     gOpt match {
@@ -49,6 +53,28 @@ object TopicMetadataValidator {
         )
       case _ => scala.util.Success(Valid)
     }
+
+  private def validateAdditional(request: TopicMetadataRequest, additionalValidations:Option[List[AdditionalValidation]]): Try[ValidationResponse] =
+    additionalValidations match {
+      case Some(validations) =>
+        val invalidReasons = validations.collect {
+          case MetadataAdditionalValidation.contact =>
+            validContact(request.contact)
+        }.collect {
+          case Invalid(reason) => reason
+        }
+        if (invalidReasons.nonEmpty) Failure(ValidatorException(invalidReasons))
+        else Success(Valid)
+      case None => Success(Valid)
+    }
+
+  private def validContact(contactField: String): ValidationResponse = {
+    if (ValidationUtils.isValidSlackChannel(contactField)) {
+      Valid
+    } else {
+      Invalid(InvalidContactProvided)
+    }
+  }
 
   private def topicIsTooLong(topic: String): ValidationResponse = {
     topic match {
@@ -161,6 +187,9 @@ object ErrorMessages {
   val BadTopicFormatError: String =
     "Schema must be formatted as <organization>.<product|context|" +
       "team>[.<version>].<entity> where <entity> is the name and the rest is the namespace of the schema"
+
+  val InvalidContactProvided: String =
+    "Field `contact` must be a Slack channel starting with '#', all lowercase, with no spaces, and less than 80 characters"
 }
 
 sealed trait ValidationResponse

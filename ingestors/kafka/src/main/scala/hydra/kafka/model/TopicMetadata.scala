@@ -40,7 +40,7 @@ case class TopicMetadata(
     id: UUID,
     createdDate: org.joda.time.DateTime,
     notificationUrl: Option[String],
-    additionalValidations: Option[List[AdditionalValidation]] = None // Never pick additionalValidations from the request.
+    additionalValidationList: Option[List[AdditionalValidation]]
 )
 
 object TopicMetadataV2 {
@@ -316,16 +316,19 @@ object TopicMetadataV2ValueOptionalTagList {
   private implicit val additionalValidationCodec: Codec[AdditionalValidation] = Codec.deriveEnum[AdditionalValidation](
     symbols = List(
       MetadataAdditionalValidation.replacementTopics.entryName,
+      MetadataAdditionalValidation.contact.entryName,
       SchemaAdditionalValidation.defaultInRequiredField.entryName,
       SchemaAdditionalValidation.timestampMillis.entryName
     ),
     encode = {
       case MetadataAdditionalValidation.replacementTopics    => MetadataAdditionalValidation.replacementTopics.entryName
+      case MetadataAdditionalValidation.contact              => MetadataAdditionalValidation.contact.entryName
       case SchemaAdditionalValidation.defaultInRequiredField => SchemaAdditionalValidation.defaultInRequiredField.entryName
       case SchemaAdditionalValidation.timestampMillis        => SchemaAdditionalValidation.timestampMillis.entryName
     },
     decode = {
       case "replacementTopics"      => Right(MetadataAdditionalValidation.replacementTopics)
+      case "contact"                => Right(MetadataAdditionalValidation.contact)
       case "defaultInRequiredField" => Right(SchemaAdditionalValidation.defaultInRequiredField)
       case "timestampMillis"        => Right(SchemaAdditionalValidation.timestampMillis)
       case other                    => Left(AvroError(s"$other is not a ${AdditionalValidation.toString}"))
