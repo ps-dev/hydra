@@ -104,19 +104,26 @@
       "default": null
     },
     {
-      "name": "additionalValidations",
+      "name": "additionalValidationList",
       "type": [
         "null",
         {
-          "type": "enum",
-          "name": "AdditionalValidations",
-          "namespace": "hydra.kafka.model",
-          "symbols": [
-            "replacementTopics"
-          ]
+          "type": "array",
+          "items": {
+            "type": "enum",
+            "name": "AdditionalValidation",
+            "namespace": "hydra.kafka.model",
+            "symbols": [
+              "replacementTopics",
+              "contact",
+              "defaultInRequiredField",
+              "timestampMillis"
+            ]
+          }
         }
       ],
-      "default": null
+      "default": null,
+      "doc": "Add a new enum entry here if the newly added validations are applicable only to new topics created henceforth."
     }
   ]
 }

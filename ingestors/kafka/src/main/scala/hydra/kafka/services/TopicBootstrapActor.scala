@@ -11,6 +11,7 @@ import hydra.common.config.ConfigSupport
 import ConfigSupport._
 import hydra.common.config.KafkaConfigUtils.KafkaClientSecurityConfig
 import hydra.common.config.KafkaConfigUtils.kafkaSecurityEmptyConfig
+import hydra.common.validation.{AdditionalValidation, AdditionalValidationUtil}
 import hydra.core.akka.SchemaRegistryActor.{RegisterSchemaRequest, RegisterSchemaResponse}
 import hydra.core.ingest.{HydraRequest, RequestParams}
 import hydra.core.marshallers.{GenericSchema, HydraJsonSupport, StreamType, TopicMetadataRequest}
@@ -107,10 +108,12 @@ class TopicBootstrapActor(
                 case Some(topicMetadata) => (request, Some(topicMetadata))
                 case None                => (request, None)
               }
-
-              TopicMetadataValidator.validate(topicMetadataRequest, schema, kafkaUtils) match {
+              val additionalValidations = new AdditionalValidationUtil(
+                isExistingTopic = metadata.isDefined,
+                currentAdditionalValidations = metadata.flatMap(_.additionalValidationList)).pickValidations()
+              TopicMetadataValidator.validate(topicMetadataRequest, schema, additionalValidations, kafkaUtils) match {
                 case Success(_) =>
-                  executeEndpoint(topicMetadataRequest, metadata)
+                  executeEndpoint(topicMetadataRequest, metadata, additionalValidations)
                 case Failure(ex: ValidatorException) =>
                   Future(BootstrapFailure(ex.reasons))
                 case Failure(e) =>
@@ -149,19 +152,23 @@ class TopicBootstrapActor(
 
   private def executeEndpoint(
       topicMetadataRequest: TopicMetadataRequest,
-      existingTopicMetadata: Option[TopicMetadata] = None
+      existingTopicMetadata: Option[TopicMetadata] = None,
+      additionalValidations: Option[List[AdditionalValidation]]
   ): Future[BootstrapResult] = {
     val result = for {
       schema <- registerSchema(topicMetadataRequest.schema.compactPrint)
       topicMetadata <- ingestMetadata(
         topicMetadataRequest,
         schema.schemaResource.id,
-        existingTopicMetadata
+        existingTopicMetadata,
+        additionalValidations
       )
       _ <- createKafkaTopics(topicMetadataRequest)
     } yield topicMetadata
 
-    result
+    result.map { topicMetadata =>
+        topicMetadata.copy(additionalValidationList = None)
+      } // remove additionalValidationList from response
       .map(BootstrapSuccess.apply)
       .recover {
         case e => BootstrapFailure(Seq(e.getMessage))
@@ -178,7 +185,8 @@ class TopicBootstrapActor(
   private[kafka] def ingestMetadata(
       topicMetadataRequest: TopicMetadataRequest,
       schemaId: Int,
-      existingTopicMetadata: Option[TopicMetadata] = None
+      existingTopicMetadata: Option[TopicMetadata] = None,
+      additionalValidations: Option[List[AdditionalValidation]]
   ): Future[TopicMetadata] = {
 
     val schema = getGenericSchema(topicMetadataRequest)
@@ -202,7 +210,7 @@ class TopicBootstrapActor(
         .map(_.createdDate)
         .getOrElse(org.joda.time.DateTime.now()),
       topicMetadataRequest.notificationUrl,
-      None // Never pick additionalValidations from the request.
+      additionalValidations
     )
 
     buildAvroRecord(topicMetadata)

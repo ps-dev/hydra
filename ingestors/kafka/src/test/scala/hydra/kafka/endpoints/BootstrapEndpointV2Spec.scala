@@ -10,6 +10,7 @@ import hydra.avro.registry.SchemaRegistry
 import hydra.avro.registry.SchemaRegistry.{SchemaId, SchemaVersion}
 import hydra.common.NotificationsTestSuite
 import hydra.common.alerting.sender.InternalNotificationSender
+import hydra.common.validation.{AdditionalValidation, MetadataAdditionalValidation}
 import hydra.common.validation.ValidationError._
 import hydra.core.http.CorsSupport
 import hydra.core.http.security.entity.AwsConfig
@@ -221,6 +222,21 @@ final class BootstrapEndpointV2Spec
           }
         }
         .unsafeRunSync()
+    }
+
+    "reject a request when slackChannel in contact is not valid for a new topic" in {
+      val request = topicMetadataV2Request.copy(
+        contact = NonEmptyList.of(Slack.create("dev-data-platform").get), // does not start with #
+      ).toJson.compactPrint
+
+      testCreateTopicProgram.map {
+        boostrapEndpoint =>
+          Put("/v2/topics/dvs.testing", HttpEntity(ContentTypes.`application/json`, request)) ~> Route.seal(
+            boostrapEndpoint.route) ~> check {
+            println(responseAs[String])
+            response.status shouldBe StatusCodes.BadRequest
+          }
+      }.unsafeRunSync()
     }
 
     "reject a request without a team name" in {

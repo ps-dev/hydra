@@ -8,6 +8,7 @@ import akka.testkit.{TestKit, TestProbe}
 import com.typesafe.config.ConfigFactory
 import hydra.avro.resource.SchemaResource
 import hydra.common.config.KafkaConfigUtils
+import hydra.common.validation.{AdditionalValidation, MetadataAdditionalValidation}
 import hydra.core.akka.SchemaRegistryActor._
 import hydra.core.marshallers.TopicMetadataRequest
 import hydra.core.protocol.{Ingest, IngestorCompleted}
@@ -131,7 +132,7 @@ class TopicBootstrapActorSpec
                       |	"dataClassification": "Public",
                       |	"subDataClassification": "Public",
                       |	"dataSourceOwner": "BARTON",
-                      |	"contact": "slackity slack dont talk back",
+                      |	"contact": "#slackity-slack-dont-talk-back",
                       |	"psDataLake": false,
                       |	"additionalDocumentation": "akka://some/path/here.jpggifyo",
                       |	"notes": "here are some notes topkek",
@@ -187,7 +188,7 @@ class TopicBootstrapActorSpec
                       |	"dataClassification": "Public",
                       |	"subDataClassification": "Public",
                       |	"dataSourceOwner": "BARTON",
-                      |	"contact": "slackity slack dont talk back",
+                      |	"contact": "#slackity-slack-dont-talk-back",
                       |	"psDataLake": false,
                       |	"additionalDocumentation": "akka://some/path/here.jpggifyo",
                       |	"notes": "here are some notes topkek",
@@ -239,7 +240,7 @@ class TopicBootstrapActorSpec
                       |	"dataClassification": "Public",
                       |	"subDataClassification": "Public",
                       |	"dataSourceOwner": "BARTON",
-                      |	"contact": "slackity slack dont talk back",
+                      |	"contact": "#slackity-slack-dont-talk-back",
                       |	"psDataLake": false,
                       |	"additionalDocumentation": "akka://some/path/here.jpggifyo",
                       |	"notes": "here are some notes topkek",
@@ -288,7 +289,7 @@ class TopicBootstrapActorSpec
                       |	"dataClassification": "Public",
                       |	"subDataClassification": "Public",
                       |	"dataSourceOwner": "BARTON",
-                      |	"contact": "slackity slack dont talk back",
+                      |	"contact": "#slackity-slack-dont-talk-back",
                       |	"psDataLake": false,
                       |	"additionalDocumentation": "akka://some/path/here.jpggifyo",
                       |	"notes": "here are some notes topkek",
@@ -339,7 +340,7 @@ class TopicBootstrapActorSpec
                        |	"dataClassification": "Public",
                        |	"subDataClassification": "Public",
                        |	"dataSourceOwner": "BARTON",
-                       |	"contact": "slackity slack dont talk back",
+                       |	"contact": "#slackity-slack-dont-talk-back",
                        |	"psDataLake": false,
                        |	"additionalDocumentation": "akka://some/path/here.jpggifyo",
                        |	"notes": "here are some notes topkek",
@@ -411,7 +412,7 @@ class TopicBootstrapActorSpec
                        |	"dataClassification": "Public",
                        |	"subDataClassification": "Public",
                        |	"dataSourceOwner": "BARTON",
-                       |	"contact": "slackity slack dont talk back",
+                       |	"contact": "#slackity-slack-dont-talk-back",
                        |	"psDataLake": false,
                        |	"additionalDocumentation": "akka://some/path/here.jpggifyo",
                        |	"notes": "here are some notes topkek",
@@ -490,7 +491,7 @@ class TopicBootstrapActorSpec
                        |	"dataClassification": "Public",
                        |	"subDataClassification": "Public",
                        |	"dataSourceOwner": "BARTON",
-                       |	"contact": "slackity slack dont talk back",
+                       |	"contact": "#slackity-slack-dont-talk-back",
                        |	"psDataLake": false,
                        |	"additionalDocumentation": "akka://some/path/here.jpggifyo",
                        |	"notes": "here are some notes topkek",
@@ -615,7 +616,7 @@ class TopicBootstrapActorSpec
                       |	"dataClassification": "Public",
                       |	"subDataClassification": "Public",
                       |	"dataSourceOwner": "BARTON",
-                      |	"contact": "slackity slack dont talk back",
+                      |	"contact": "#slackity-slack-dont-talk-back",
                       |	"psDataLake": false,
                       |	"additionalDocumentation": "akka://some/path/here.jpggifyo",
                       |	"notes": "here are some notes topkek",
@@ -677,7 +678,7 @@ class TopicBootstrapActorSpec
                          |	"dataClassification": "Public",
                          |	"subDataClassification": "Public",
                          |	"dataSourceOwner": "BARTON",
-                         |	"contact": "slackity slack dont talk back",
+                         |	"contact": "#slackity-slack-dont-talk-back",
                          |	"psDataLake": false,
                          |	"additionalDocumentation": "akka://some/path/here.jpggifyo",
                          |	"notes": "here are some notes topkek",
@@ -733,7 +734,7 @@ class TopicBootstrapActorSpec
                        |	"dataClassification": "Public",
                        |	"subDataClassification": "Public",
                        |	"dataSourceOwner": "BARTON",
-                       |	"contact": "slackity slack dont talk back",
+                       |	"contact": "#slackity-slack-dont-talk-back",
                        |	"psDataLake": false,
                        |	"additionalDocumentation": "akka://some/path/here.jpggifyo",
                        |	"notes": "here are some notes topkek",
@@ -779,31 +780,177 @@ class TopicBootstrapActorSpec
     )
     consumeFirstStringMessageFrom(consumeSubject) shouldEqual expectedMessage
   }
+
+  it should "accept a request when slackChannel in contact is not valid for an existing topic" in {
+    val subject = "exp.dataplatform.validationTestSubjectSuccess"
+
+    val mdRequest = s"""{
+                       |	"streamType": "Notification",
+                       | "derived": false,
+                       |	"dataClassification": "Public",
+                       |	"subDataClassification": "Public",
+                       |	"dataSourceOwner": "BARTON",
+                       |	"contact": "slackity-slack-dont-talk-back",
+                       |	"psDataLake": false,
+                       |	"additionalDocumentation": "akka://some/path/here.jpggifyo",
+                       |	"notes": "here are some notes topkek",
+                       |	"schema": {
+                       |	  "namespace": "exp.dataplatform",
+                       |	  "name": "validationTestSubjectSuccess",
+                       |	  "type": "record",
+                       |	  "version": 1,
+                       |	  "fields": [
+                       |	    {
+                       |	      "name": "testField",
+                       |	      "type": "string"
+                       |	    }
+                       |	  ]
+                       |	}
+                       |}""".stripMargin.parseJson
+      .convertTo[TopicMetadataRequest]
+
+    val (probe, schemaRegistryActor, _) = fixture("test14")
+
+    val bootstrapActor = system.actorOf(
+      TopicBootstrapActor.props(
+        schemaRegistryActor,
+        system.actorSelection("/user/kafka_ingestor_test14"),
+        system.actorOf(Props(new MockStreamsManagerActor()))
+      )
+    )
+
+    probe.expectMsgType[RegisterSchemaRequest]
+
+    val senderProbe = TestProbe()
+
+    bootstrapActor.tell(InitiateTopicBootstrap(mdRequest), senderProbe.ref)
+
+    probe.receiveWhile(messages = 2) {
+      case RegisterSchemaRequest(schemaJson) =>
+        schemaJson should
+          include("validationTestSubjectSuccess")
+      case FetchSchemaRequest(schemaName) =>
+        schemaName shouldEqual "_hydra.metadata.topic"
+    }
+
+    probe.expectMsgPF() {
+      case Ingest(msg: AvroRecord, ack) =>
+        msg.payload.getSchema.getName shouldBe "topic"
+        ack shouldBe AckStrategy.Replicated
+    }
+
+    senderProbe.expectMsgPF() {
+      case BootstrapSuccess(tm) =>
+        tm.schemaId should be > 0
+        tm.derived shouldBe false
+        tm.subject shouldBe subject
+    }
+
+    bootstrapActor.tell(InitiateTopicBootstrap(mdRequest), senderProbe.ref)
+
+    senderProbe.expectMsgPF() {
+      case BootstrapSuccess(tm) =>
+        tm.schemaId should be > 0
+        tm.derived shouldBe false
+        tm.subject shouldBe subject
+    }
+  }
+
+  it should "reject a request when slackChannel in contact is not valid for a new topic" in {
+
+    val mdRequest = s"""{
+                       |	"streamType": "Notification",
+                       | "derived": false,
+                       |	"dataClassification": "Public",
+                       |	"subDataClassification": "Public",
+                       |	"dataSourceOwner": "BARTON",
+                       |	"contact": "slackity-slack-dont-TALK-back-1234",
+                       |	"psDataLake": false,
+                       |	"additionalDocumentation": "akka://some/path/here.jpggifyo",
+                       |	"notes": "here are some notes topkek",
+                       |	"schema": {
+                       |	  "namespace": "exp.dataplatform",
+                       |	  "name": "validationTestSubjectFail",
+                       |	  "type": "record",
+                       |	  "version": 1,
+                       |	  "fields": [
+                       |	    {
+                       |	      "name": "testField",
+                       |	      "type": "string"
+                       |	    }
+                       |	  ]
+                       |	}
+                       |}""".stripMargin.parseJson
+      .convertTo[TopicMetadataRequest]
+
+    val (probe, schemaRegistryActor, _) = fixture("test15")
+
+    val bootstrapActor = system.actorOf(
+      TopicBootstrapActor.props(
+        schemaRegistryActor,
+        system.actorSelection("/user/kafka_ingestor_test15"),
+        system.actorOf(Props(new MockStreamsManagerActor()))
+      )
+    )
+
+    probe.expectMsgType[RegisterSchemaRequest]
+
+    val senderProbe = TestProbe()
+
+    bootstrapActor.tell(InitiateTopicBootstrap(mdRequest), senderProbe.ref)
+
+    senderProbe.expectMsgPF() {
+      case BootstrapFailure(reasons) =>
+        reasons should contain("Field `contact` must be a Slack channel starting with '#', all lowercase, with no spaces, and less than 80 characters")
+    }
+  }
+
 }
 
 class MockStreamsManagerActor extends Actor {
 
-  val tm = TopicMetadata(
-    "test-md-subject",
-    1,
-    "entity",
-    false,
-    None,
-    None,
-    None,
-    "private",
-    None,
-    "alex",
-    None,
-    None,
-    UUID.randomUUID(),
-    DateTime.now(),
-    Some("notification.url"),
-    None
+  val defaultMetadata: Map[String, TopicMetadata] = Map(
+    "test-md-subject" -> TopicMetadata(
+      "test-md-subject",
+      1,
+      "entity",
+      false,
+      None,
+      None,
+      None,
+      "private",
+      None,
+      "alex",
+      None,
+      None,
+      UUID.randomUUID(),
+      DateTime.now(),
+      Some("notification.url"),
+      None
+    ),
+    "exp.dataplatform.validationTestSubjectSuccess" -> TopicMetadata(
+      "exp.dataplatform.validationTestSubjectSuccess",
+      1,
+      "entity",
+      false,
+      None,
+      None,
+      None,
+      "private",
+      None,
+      "alex",
+      None,
+      None,
+      UUID.randomUUID(),
+      DateTime.now(),
+      Some("notification.url"),
+      AdditionalValidation.allValidations.map(_.filterNot(_ == MetadataAdditionalValidation.contact))
+    )
   )
+
 
   override def receive: Receive = {
     case GetMetadata =>
-      sender ! GetMetadataResponse(Map("test-md-subject" -> tm))
+      sender ! GetMetadataResponse(defaultMetadata)
   }
 }

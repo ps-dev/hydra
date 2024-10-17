@@ -130,7 +130,8 @@ class BootstrapEndpointSpec
                            replacementTopics: Option[List[String]] = None,
                            previousTopics: Option[List[String]] = None,
                            dataClassification: String = "InternalUse",
-                           subDataClassification: Option[String] = None): HttpEntity.Strict = HttpEntity(
+                           subDataClassification: Option[String] = None,
+                           contact: String = "#slackity-slack-dont-talk-back"): HttpEntity.Strict = HttpEntity(
     ContentTypes.`application/json`,
     s"""{
        |	"streamType": "Notification",
@@ -141,7 +142,7 @@ class BootstrapEndpointSpec
        |  ${if (previousTopics.nonEmpty) s""""previousTopics": ${previousTopics.toJson},""" else ""}
        |	${if (subDataClassification.isDefined) s""""subDataClassification": "${subDataClassification.get}",""" else ""}
        |	"dataSourceOwner": "BARTON",
-       |	"contact": "slackity slack dont talk back",
+       |	"contact": "$contact",
        |	"psDataLake": false,
        |	"additionalDocumentation": "akka://some/path/here.jpggifyo",
        |	"notes": "here are some notes topkek",
@@ -178,7 +179,7 @@ class BootstrapEndpointSpec
            | "derived": false,
            |	"dataClassification": "Public",
            |	"subDataClassification": "Public",
-           |	"contact": "slackity slack dont talk back",
+           |	"contact": "#slackity-slack-dont-talk-back",
            |	"additionalDocumentation": "akka://some/path/here.jpggifyo",
            |	"notes": "here are some notes topkek",
            |	"schemaId": 2,
@@ -217,7 +218,7 @@ class BootstrapEndpointSpec
            | "derived": false,
            |	"dataClassification": "Public",
            |	"subDataClassification": "Public",
-           |	"contact": "slackity slack dont talk back",
+           |	"contact": "#slackity-slack-dont-talk-back",
            |	"additionalDocumentation": "akka://some/path/here.jpggifyo",
            |	"notes": "here are some notes topkek",
            |	"schemaId": 2,
@@ -258,7 +259,7 @@ class BootstrapEndpointSpec
           |	"dataClassification": "Public",
           |	"subDataClassification": "Public",
           |	"dataSourceOwner": "BARTON",
-          |	"contact": "slackity slack dont talk back",
+          |	"contact": "#slackity-slack-dont-talk-back",
           |	"psDataLake": false,
           |	"additionalDocumentation": "akka://some/path/here.jpggifyo",
           |	"notes": "here are some notes topkek",
@@ -294,7 +295,7 @@ class BootstrapEndpointSpec
           |	"dataClassification": "Public",
           |	"subDataClassification": "Public",
           |	"dataSourceOwner": "BARTON",
-          |	"contact": "slackity slack dont talk back",
+          |	"contact": "#slackity-slack-dont-talk-back",
           |	"psDataLake": false,
           |	"additionalDocumentation": "akka://some/path/here.jpggifyo",
           |	"notes": "here are some notes topkek",
@@ -328,7 +329,7 @@ class BootstrapEndpointSpec
           |	"dataClassification": "Public",
           |	"subDataClassification": "Public",
           |	"dataSourceOwner": "BARTON",
-          |	"contact": "slackity slack dont talk back",
+          |	"contact": "#slackity-slack-dont-talk-back",
           |	"psDataLake": false,
           |	"additionalDocumentation": "akka://some/path/here.jpggifyo",
           |	"notes": "here are some notes topkek",
@@ -362,7 +363,7 @@ class BootstrapEndpointSpec
           |	"dataClassification": "Public",
           |	"subDataClassification": "Public",
           |	"dataSourceOwner": "BARTON",
-          |	"contact": "slackity slack dont talk back",
+          |	"contact": "#slackity-slack-dont-talk-back",
           |	"psDataLake": false,
           |	"additionalDocumentation": "akka://some/path/here.jpggifyo",
           |	"notes": "here are some notes topkek",
@@ -393,7 +394,7 @@ class BootstrapEndpointSpec
           |	"streamName": "invalid",
           |	"streamType": "Historical",
           |	"dataSourceOwner": "BARTON",
-          |	"dataSourceContact": "slackity slack dont talk back",
+          |	"dataSourceContact": "#slackity-slack-dont-talk-back",
           |	"psDataLake": false,
           |	"dataDocPath": "akka://some/path/here.jpggifyo",
           |	"dataOwnerNotes": "here are some notes topkek",
@@ -427,7 +428,7 @@ class BootstrapEndpointSpec
           |	"dataClassification": "Public",
           |	"subDataClassification": "Public",
           |	"dataSourceOwner": "BARTON",
-          |	"contact": "slackity slack dont talk back",
+          |	"contact": "#slackity-slack-dont-talk-back",
           |	"psDataLake": false,
           |	"additionalDocumentation": "akka://some/path/here.jpggifyo",
           |	"notes": "here are some notes topkek",
@@ -463,7 +464,7 @@ class BootstrapEndpointSpec
           |	"dataClassification": "Public",
           |	"subDataClassification": "Public",
           |	"dataSourceOwner": "BARTON",
-          |	"contact": "slackity slack dont talk back",
+          |	"contact": "#slackity-slack-dont-talk-back",
           |	"psDataLake": false,
           |	"additionalDocumentation": "akka://some/path/here.jpggifyo",
           |	"notes": "here are some notes topkek",
@@ -715,6 +716,16 @@ class BootstrapEndpointSpec
         validateResponseString(response, previousTopics = previousTopics)
       }
     }
+
+    "v1: reject a request when slackChannel in contact is not valid for a new topic" in {
+      val slackChannel = "slackity-slack-dont-talk-back"
+      Post("/streams",
+        v1CreateTopicRequest(contact = slackChannel)
+      ) ~> bootstrapRoute ~> check {
+        status shouldBe StatusCodes.BadRequest
+        responseAs[String] shouldBe s"""["Field `contact` must be a Slack channel starting with '#', all lowercase, with no spaces, and less than 80 characters"]"""
+      }
+    }
   }
 
   def validateResponseString(response: JsValue,
@@ -739,7 +750,7 @@ class BootstrapEndpointSpec
          |    }
          |  },
          |  "additionalDocumentation": "akka://some/path/here.jpggifyo",
-         |  "contact": "slackity slack dont talk back",
+         |  "contact": "#slackity-slack-dont-talk-back",
          |  "createdDate": $createdDate,
          |  "dataClassification": "InternalUse",
          |  "deprecated": $deprecated,
