@@ -359,7 +359,7 @@ sealed trait TopicMetadataV2Parser
       j.fields.get(jsonField).map { num =>
         TopicMetadataV2Request.NumPartitions.from(num.convertTo[Int]).toOption match {
           case Some(numP) => numP
-          case None => throwDeserializationError(jsonField, "Int [0-100]")
+          case None => throwDeserializationError(jsonField, "Int [1-100]")
         }
       }
 
