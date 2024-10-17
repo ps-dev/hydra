@@ -247,7 +247,7 @@ sealed trait TopicMetadataV2Parser
       val int = json.convertTo[Int]
       TopicMetadataV2Request.NumPartitions.from(int) match {
         case Right(value) => value
-        case Left(value) => throw new DeserializationException(value)
+        case Left(value) => throw DeserializationException(value)
       }
     }
     
@@ -359,7 +359,7 @@ sealed trait TopicMetadataV2Parser
       j.fields.get(jsonField).map { num =>
         TopicMetadataV2Request.NumPartitions.from(num.convertTo[Int]).toOption match {
           case Some(numP) => numP
-          case None => throwDeserializationError(jsonField, "Int [10-50]")
+          case None => throwDeserializationError(jsonField, "Int [0-100]")
         }
       }
 

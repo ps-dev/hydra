@@ -105,7 +105,7 @@ final case class TopicMetadataV2Request(
 
 object TopicMetadataV2Request {
 
-  type NumPartitionsPredicate = Greater[W.`9`.T] And Less[W.`51`.T]
+  type NumPartitionsPredicate = Greater[W.`0`.T] And Less[W.`101`.T]
   type NumPartitions = Int Refined NumPartitionsPredicate
 
   object NumPartitions extends RefinedTypeOps[NumPartitions, Int]

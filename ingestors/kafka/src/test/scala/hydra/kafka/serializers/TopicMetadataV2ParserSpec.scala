@@ -781,6 +781,19 @@ class TopicMetadataV2ParserSpec extends AnyWordSpecLike with Matchers {
         )._1
     }
 
+    "throw error when parsing numPartitions=0" in {
+      val jsValue = JsNumber(0)
+      the[DeserializationException] thrownBy {
+        topicMetadataNumPartitionsFormat.read(jsValue)
+      } should have message "Left predicate of ((0 > 0) && (0 < 101)) failed: Predicate failed: (0 > 0)."
+    }
+
+    "throw error when parsing numPartitions=101" in {
+      val jsValue = JsNumber(101)
+      the[DeserializationException] thrownBy {
+        topicMetadataNumPartitionsFormat.read(jsValue)
+      } should have message "Right predicate of ((101 > 0) && (101 < 101)) failed: Predicate failed: (101 < 101)."
+    }
   }
 
   "TopicMetadataV2Parser" must {

@@ -297,10 +297,10 @@ class CreateTopicProgramSpec extends AsyncFreeSpec with Matchers with IOSuite {
     "create topic with custom number of partitions" in {
       for {
         ts      <- initTestServices()
-        request = createTopicMetadataRequest(keySchema, valueSchema, numPartitions = refineMV[TopicMetadataV2Request.NumPartitionsPredicate](22).some)
+        request = createTopicMetadataRequest(keySchema, valueSchema, numPartitions = refineMV[TopicMetadataV2Request.NumPartitionsPredicate](100).some)
         _       <- ts.program.createTopic(subject, request, topicDetails)
         topic   <- ts.kafka.describeTopic(subject.value)
-      } yield topic.get shouldBe Topic(subject.value, 22)
+      } yield topic.get shouldBe Topic(subject.value, 100)
     }
 
     "throw error on topic with key and value field named same but with different type" in {

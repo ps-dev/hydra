@@ -27,7 +27,7 @@ final class CreateTopicProgram[F[_]: Bracket[*[_], Throwable]: Sleep: Logger] pr
                                                                                metadataAlgebra: MetadataAlgebra[F],
                                                                                schemaValidator: KeyAndValueSchemaV2Validator[F],
                                                                                metadataValidator: TopicMetadataV2Validator[F]
-                                                                             ) (implicit eff: Sync[F]){
+                                                                             )(implicit eff: Sync[F]) {
 
   private def onFailure(resourceTried: String): (Throwable, RetryDetails) => F[Unit] = {
     (error, retryDetails) =>

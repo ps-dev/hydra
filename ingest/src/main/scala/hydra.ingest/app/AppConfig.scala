@@ -94,7 +94,7 @@ object AppConfig {
         .as[FiniteDuration]
         .default(1.second),
       env("HYDRA_KAFKA_PRODUCER_BOOTSTRAP_SERVERS").as[String],
-      env("HYDRA_DEFAULT_PARTIONS").as[Int].default(10),
+      env("HYDRA_DEFAULT_PARTITIONS").as[Int].default(10),
       env("HYDRA_REPLICATION_FACTOR").as[Short].default(3),
       env("HYDRA_MIN_INSYNC_REPLICAS").as[Short].default(2)
       ).parMapN(CreateTopicConfig)
