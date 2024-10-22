@@ -47,7 +47,7 @@ tolerations: []
 nodeSelector: {}
 
 config:
-  HYDRA_KAFKA_PRODUCER_BOOTSTRAP_SERVERS: b-3.isdvsdevblueuswest2.8xkirx.c14.kafka.us-west-2.amazonaws.com:9092,b-2.isdvsdevblueuswest2.8xkirx.c14.kafka.us-west-2.amazonaws.com:9092,b-1.isdvsdevblueuswest2.8xkirx.c14.kafka.us-west-2.amazonaws.com:9092
+  HYDRA_KAFKA_PRODUCER_BOOTSTRAP_SERVERS: b-1.isdvsdevblueuswest2.5emzc4.c6.kafka.us-west-2.amazonaws.com:9092,b-3.isdvsdevblueuswest2.5emzc4.c6.kafka.us-west-2.amazonaws.com:9092,b-2.isdvsdevblueuswest2.5emzc4.c6.kafka.us-west-2.amazonaws.com:9092
   HYDRA_KAFKA_SECURITY_PROTOCOL: 'PLAINTEXT'
   HYDRA_MIN_INSYNC_REPLICAS: 1
   HYDRA_REPLICATION_FACTOR: 1
